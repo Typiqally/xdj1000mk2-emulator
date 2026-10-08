@@ -1,4 +1,4 @@
-from native_support import core_library
+from native_support import cache_version, core_library
 """Empty adaptive compilation batches must not exhaust the module cache."""
 import ctypes
 import os
@@ -59,13 +59,13 @@ int main(int argc,char **argv) {
             env.update(C66X_JIT_AUTO=str(folder / 'cache'), C66X_JIT_AUTO_MIN='1000',
                        C66X_JIT_AUTO_S='1000000', C66X_JIT_GEN=str(generator),
                        C66X_JIT_PYTHON=sys.executable)
-            for version, expected in ((2, 1), (1, 2)):
+            for version, expected in ((cache_version(), 1), (cache_version() - 1, 2)):
                 (batch / 'm.cache').write_text(str(version)+'\n')
                 result = subprocess.run([str(binary), str(expected)], env=env,
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_mapped_region_that_fails_verification_does_not_schedule_empty_batches(self):
+    def test_region_built_from_other_bytes_is_offered_once_more_and_not_forever(self):
         import sys
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d)
@@ -78,9 +78,12 @@ int main(int argc,char **argv) {
             subprocess.run(['cc', '-shared', '-fPIC', '-I', str(DSP), str(source),
                             '-o', str(folder / 'mapped.so')], check=True, capture_output=True)
             generator = folder / 'generator.py'
-            generator.write_text('import pathlib,sys\n'
-                'pathlib.Path(sys.argv[2]+".tried").write_text("")\n'
-                'pathlib.Path(sys.argv[2]+".qtried").write_text("")\n')
+            # The generator lists every packet it examined, compiled or not;
+            # it also keeps the profile it was given, for the check below.
+            generator.write_text('import pathlib,shutil,sys\n'
+                'pathlib.Path(sys.argv[2]+".tried").write_text("0x11800000\\n")\n'
+                'pathlib.Path(sys.argv[2]+".qtried").write_text("")\n'
+                'shutil.copy(pathlib.Path(sys.argv[1])/"profile.txt",sys.argv[2]+".profile")\n')
             driver = folder / 'mapped-test.c'
             driver.write_text(r'''
 #include <assert.h>
@@ -92,13 +95,19 @@ int main(void) {
     for(unsigned i=0;i<1201;i++) {
         c->pc=0x11800000; assert(c66x_step(c,1,&done)==C66X_STOP_BUDGET);
     }
+    /* The module was built from other bytes than the packet holds (another
+     * overlay, a module seeded from a different DSP program): it is never
+     * entered, so the packet is offered to the generator again... */
+    c->jit->auto_last=-c->jit->auto_interval; jit_auto_poll(c);
+    assert(c->jit->auto_busy);
+    while(c->jit->auto_busy) { g_usleep(1000); jit_auto_poll(c); }
+    assert(c->jit->auto_batch==1);
+    /* ...once: what the generator examined is not started over. */
     c->jit->auto_last=-c->jit->auto_interval; jit_auto_poll(c);
     while(c->jit->auto_busy) { g_usleep(1000); jit_auto_poll(c); }
     unsigned batches=c->jit->auto_batch;
     c66x_free(c);
-    /* The generator's have list already excludes this mapped PC. Failed
-     * verification must keep interpretation, without offering it forever. */
-    assert(batches==0);
+    assert(batches==1);
 }
 ''')
             flags = subprocess.check_output(['pkg-config', '--cflags', '--libs', 'gmodule-2.0'], text=True).split()
@@ -111,6 +120,11 @@ int main(void) {
                        C66X_JIT_GEN=str(generator), C66X_JIT_PYTHON=sys.executable)
             result = subprocess.run([str(binary)], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            # The stale region is not in the have list, or the generator
+            # would skip the very packet it is being asked to compile.
+            profile = (folder / 'cache/batch0/m.profile').read_text()
+            self.assertIn('prof 0x11800000 ', profile)
+            self.assertNotIn('have 0x11800000', profile)
 
     def test_already_mapped_kernel_does_not_schedule_an_empty_batch(self):
         import sys
@@ -163,7 +177,7 @@ int main(void) {
                     'const c66x_jit_module c66x_jit_exports={.abi=C66X_JIT_ABI,.nregions=1,.regions=r};\n' % i)
                 subprocess.run(['cc', '-shared', '-fPIC', '-I', str(DSP),
                                 str(source), '-o', str(batch / 'm.so')], check=True, capture_output=True)
-                (batch / 'm.cache').write_text('2\n')
+                (batch / 'm.cache').write_text('%d\n' % cache_version())
             driver = folder / 'order.c'
             driver.write_text('#include <assert.h>\n#include "c66x_priv.h"\n'
                 'int main(void){c66x_core *c=c66x_new(NULL);'
@@ -240,9 +254,9 @@ int main(int argc,char **argv) {
                 subprocess.run(['cc', '-shared', '-fPIC', '-I', str(DSP),
                                 str(source), '-o', str(batch / 'm.so')],
                                check=True, capture_output=True)
-            (folder / 'batch0/m.cache').write_text('1\n')
-            (folder / 'batch1/m.cache').write_text('2\n')
-            (folder / 'batch2/m.cache').write_text('2\n')
+            (folder / 'batch0/m.cache').write_text('%d\n' % (cache_version() - 1))
+            (folder / 'batch1/m.cache').write_text('%d\n' % cache_version())
+            (folder / 'batch2/m.cache').write_text('%d\n' % cache_version())
             script = '''import ctypes,sys
 lib=ctypes.CDLL(sys.argv[1]);lib.c66x_new.restype=ctypes.c_void_p
 lib.c66x_new.argtypes=[ctypes.c_void_p]

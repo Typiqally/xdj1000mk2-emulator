@@ -788,18 +788,9 @@ static void jit_auto_retarget(c66x_core *c)
             jit_auto_mark(c, j->auto_noted[i].prefix, false);
 }
 
-/* c66x_step runs this on every call, a hundred thousand times a second in the
- * machine: the clock and the compile thread's result are looked at once per
- * JIT_POLL_CYCLES core cycles (about 5 ms of DSP time), which is still far
- * finer than the interval a batch is started at. */
-#define JIT_POLL_CYCLES (UINT64_C(1) << 21)
-
 void jit_auto_poll(c66x_core *c)
 {
     struct c66x_jit *j = c->jit;
-    if (c->cycle < j->auto_poll_cycle)
-        return;
-    j->auto_poll_cycle = c->cycle + JIT_POLL_CYCLES;
     if (j->auto_busy) {
         if (!j->auto_result)
             return;
@@ -885,7 +876,6 @@ void jit_auto_poll(c66x_core *c)
     j->auto_argv[a++] = g_strdup(j->auto_lib);
     j->auto_argv[a++] = g_strdup("--min");
     j->auto_argv[a++] = g_strdup_printf("%u", j->auto_min);
-    j->auto_argv[a++] = g_strdup("--round-batch");
     if (!atoi(jit_env("C66X_JIT_AUTO_CHAIN", "1")))
         j->auto_argv[a++] = g_strdup("--no-chain");
     j->auto_argv[a++] = g_strdup("--nodes");

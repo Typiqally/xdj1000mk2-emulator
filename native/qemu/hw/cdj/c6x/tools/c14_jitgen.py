@@ -30,6 +30,7 @@ Exactness is checked by the rBw2 replay (qemu/c13_bench.sh with C66X_JIT).
 usage: c14_jitgen.py <profile dir> <out prefix> [--roots N] [--min N] [--nodes N]
 """
 import argparse
+import bisect
 import functools
 import ctypes
 import mmap
@@ -124,8 +125,9 @@ class Decoder:
         with open(profile) as stream:
             header = [line.split() for line in stream if line.split()[:1] in (["cpu"], ["abi"])]
         self.isa = "c674x" if ["cpu", "c674x"] in header else "compat"
-        # The module ABI of the core that wrote the profile; cores before 13 did not say.
-        self.abi = max([int(t[1]) for t in header if t[0] == "abi" and len(t) == 2] or [12])
+        # The module ABI of the core that wrote the profile, None when it does
+        # not say (a profile written by hand, or by a core before ABI 13).
+        self.abi = max([int(t[1]) for t in header if t[0] == "abi" and len(t) == 2], default=None)
         self.core = (self.lib.c66x_new_c674x if self.isa == "c674x" else self.lib.c66x_new)(None)
         self.maps, self.prof, self.idle_head, self.kerns = [], [], 0, []
         self.have = set()          # roots an already loaded module compiles
@@ -463,10 +465,12 @@ class RegionGen:
         ring = [dict(w) for w in st.ring]
         post_used = False
         if not root:
-            e("    if (__builtin_expect(c->cycle >= end, 0)) { c->jit_exit[%d]++; goto X%d; }" % (EXIT_BUDGET, label))
-            e("    if (__builtin_expect(c->code_gen != gen, 0)) { c->jit_exit[%d]++; goto X%d; }" % (EXIT_GEN, label))
-            e("    if (__builtin_expect(c->ifr && pending_interrupt(c), 0)) { c->jit_exit[%d]++; goto X%d; }"
-              % (EXIT_IRQ, label))
+            # One bound stands for the three exit conditions (c->jit_stop): the
+            # budget's end, unless the core pulled it in because code was
+            # dropped or an interrupt may have become deliverable. S<label>
+            # then looks at each of them, in the interpreter's order.
+            e("    if (__builtin_expect(c->cycle >= c->jit_stop, 0)) goto S%d;" % label)
+            e("C%d: ;" % label)
             # the commit: writes from before entry, this cycle's ring slot, last cycle's delay-0 writes
             ctrl = []
             if st.pre:
@@ -507,7 +511,11 @@ class RegionGen:
         else:
             h_store = handler_number("H_STORE")
             stores = any(ins.fop == "store" or ins.handler == h_store for ins in pk.insns)
-            e("    c->exec_pc = %s;" % u32(pk.pc))
+            # exec_pc names the packet to whatever the core is called for: a
+            # bus access, a queued store, an interpreted handler. A packet of
+            # register arithmetic and branches calls nothing.
+            if not all(self.calls_nothing(ins) for ins in pk.insns):
+                e("    c->exec_pc = %s;" % u32(pk.pc))
             if stores and not pk.load:
                 e("    c->store_now = 1;")
             elif stores and not WIDE_MEM:
@@ -531,6 +539,11 @@ class RegionGen:
             q["rem"] -= 1
         self.land(queue, ring, new_imm, next_pc, mcnop, pre, self.trim(known), "    ")
         self.stubs(label, st, post_used)
+
+    @staticmethod
+    def calls_nothing(ins):
+        """An instruction whose compiled form never leaves the generated code."""
+        return native(ins) and ins.fop not in ("load", "store")
 
     def hold_store(self, flag, ea, parts):
         """Hold one store instruction for land_stores. ea and the values are C
@@ -568,6 +581,12 @@ class RegionGen:
 
     def _stubs(self, label, st, post_used):
         if not self.root_label(label):
+            self.emit("S%d: ;" % label)
+            self.emit("    if (c->cycle >= end) { c->jit_exit[%d]++; goto X%d; }" % (EXIT_BUDGET, label))
+            self.emit("    if (c->code_gen != gen) { c->jit_exit[%d]++; goto X%d; }" % (EXIT_GEN, label))
+            self.emit("    if (c->ifr && pending_interrupt(c)) { c->jit_exit[%d]++; goto X%d; }" % (EXIT_IRQ, label))
+            self.emit("    c->jit_stop = end;")
+            self.emit("    goto C%d;" % label)
             self.emit("X%d: ;" % label)
             self.put_back(st, u32(st.pc), "    ")
             self.emit("    return;")
@@ -1168,6 +1187,7 @@ class RegionGen:
             self.cycle(label, st)
         decl = ["void %s(c66x_core *c, uint64_t end)" % self.name, "{"]
         decl.append("    uint64_t gen = c->code_gen;")
+        decl.append("    c->jit_stop = end;")
         self.declare(decl)
         return "\n".join(decl + self.body + self.cold + ["}"]), len(self.labels)
 
@@ -1201,7 +1221,6 @@ class RegionGen:
 # compiled as one -- see jit_run for what that cost.
 
 FN_NODES = 1500
-CORE_STATE_ABI = 13                   # cores from this module ABI on hold the hop target and rounding mode
 COLD = 20000                          # profile count below which a packet's states are left to the interpreter
 XS_R, XS_M, XS_B = 0, 32, 48          # c->jit_xs slots of r<i>, m<j>, bt<k> (and their flags)
 
@@ -1227,6 +1246,9 @@ class ModuleGen(RegionGen):
         self.chain = True         # exit at roots supplied by earlier modules
         self.clean_entries = {}   # pc -> label of its clean state
         self.qentries = {}        # pc -> (label, rem, target): roots entered with one branch in flight (c16)
+        self.layout = "discovery"
+        self.fn_of = {}
+        self.dynamic = True
 
     def goto(self, label):
         return "\x01%d\x01" % label
@@ -1235,6 +1257,15 @@ class ModuleGen(RegionGen):
         return label in self.entry_labels
 
     def transition(self, st, ind="    "):
+        if (self.dynamic and st.pc is None and not st.mcnop and not st.queue
+                and not st.ring and not st.imm and not st.pre):
+            # A completely drained branch can enter a clean state in this
+            # same verified function. Keep pending-state exits on the original
+            # materialization path; function-local targets share its byte guard.
+            self.sites.append((self.cur_pc, "dynamic pc (from here)"))
+            self.emit(ind + "jit_dynamic_pc = %s; jit_dynamic_site = %d; goto D;"
+                      % (st.pc_expr, len(self.sites) - 1))
+            return
         if (self.chain and st.pc is not None and st.pc in self.dec.have and not st.queue and st.mcnop == 0
                 and st.key() not in self.labels):
             self.materialize(st, u32(st.pc), ind, EXIT_CHAIN)
@@ -1341,18 +1372,78 @@ class ModuleGen(RegionGen):
         pc, mcnop, queue, ring, imm, pre, known = key
         return pc is not None and not mcnop and not queue and not ring and not imm and not pre and not known
 
+    def function_groups(self):
+        """Pack fitting strongly connected regions without splitting their loops.
+
+        Iterative Tarjan avoids Python's recursion limit on large state graphs.
+        Oversized components retain discovery order within bounded chunks.
+        """
+        if self.layout == "discovery":
+            return [[label for label in range(start, min(len(self.labels), start + self.fn_nodes))
+                     if label in self.code] for start in range(0, len(self.labels), self.fn_nodes)]
+        edges = {label: sorted({int(line.split("\x01")[1]) for line in lines if "\x01" in line})
+                 for label, lines in self.code.items()}
+        index, low, pending, active, components = {}, {}, [], set(), []
+        for root in sorted(self.code):
+            if root in index:
+                continue
+            def enter(label):
+                index[label] = low[label] = len(index)
+                pending.append(label)
+                active.add(label)
+                return label, iter(edges[label])
+            frames = [enter(root)]
+            while frames:
+                label, children = frames[-1]
+                child = next(children, None)
+                if child is not None:
+                    if child not in index:
+                        frames.append(enter(child))
+                    elif child in active:
+                        low[label] = min(low[label], index[child])
+                    continue
+                frames.pop()
+                if low[label] == index[label]:
+                    component = []
+                    while True:
+                        member = pending.pop()
+                        active.remove(member)
+                        component.append(member)
+                        if member == label:
+                            break
+                    components.append(sorted(component))
+                if frames:
+                    parent = frames[-1][0]
+                    low[parent] = min(low[parent], low[label])
+        bins, available = [], []
+        for component in sorted(components, key=lambda members: members[0]):
+            for start in range(0, len(component), self.fn_nodes):
+                unit = component[start:start + self.fn_nodes]
+                position = bisect.bisect_left(available, (len(unit), -1))
+                if position == len(available):
+                    number = len(bins)
+                    bins.append([])
+                    remaining = self.fn_nodes
+                else:
+                    remaining, number = available.pop(position)
+                bins[number].extend(unit)
+                if remaining > len(unit):
+                    bisect.insort(available, (remaining - len(unit), number))
+        return [sorted(group) for group in bins]
+
     def functions(self):
         """C source of every function, and the name of the function each entry lives in."""
         nlab = len(self.labels)
         if self.clean:
             self.clean_entries = {key[0]: lab for key, lab in self.labels.items()
                                   if lab in self.code and self.is_clean(key) and key[0] != self.dec.idle_head}
-        nfn = (nlab + self.fn_nodes - 1) // self.fn_nodes
-        fn_of = lambda lab: lab // self.fn_nodes
+        groups = self.function_groups()
+        nfn = len(groups)
+        self.fn_of = {label: number for number, group in enumerate(groups) for label in group}
+        fn_of = self.fn_of.__getitem__
         cross = [set() for _ in range(nfn)]
         out = []
-        for f in range(nfn):
-            labs = [l for l in range(f * self.fn_nodes, min(nlab, (f + 1) * self.fn_nodes)) if l in self.code]
+        for f, labs in enumerate(groups):
             body = []
             for l in labs:
                 for line in self.code[l]:
@@ -1374,6 +1465,9 @@ class ModuleGen(RegionGen):
         clean_labels = set(self.clean_entries.values())
         for f, (labs, body, cold) in enumerate(out):
             head = ["void jit_fn%d(c66x_core *c, uint64_t end, unsigned entry, uint64_t gen)" % f, "{"]
+            dynamic = any("goto D;" in line for line in body)
+            if dynamic:
+                head.append("    uint32_t jit_dynamic_pc; unsigned jit_dynamic_site;")
             for i in range(32):
                 head.append("    uint32_t r%d = 0; uint8_t rf%d = 0;" % (i, i))
             for i in range(16):
@@ -1392,6 +1486,15 @@ class ModuleGen(RegionGen):
                                 % (l, loads, f, f, f, l, l))
             head.append("    default: return;")
             head.append("    }")
+            if dynamic:
+                body += ["D: ;", "    switch (jit_dynamic_pc) {"]
+                for pc, label in sorted(self.clean_entries.items()):
+                    if fn_of(label) == f:
+                        body.append("    case %s: goto L%d;" % (u32(pc), label))
+                body += ["    default:", "        c->jit_exit[%d]++;" % EXIT_DYNPC,
+                         "        jit_site_n[jit_dynamic_site]++;",
+                         "        c->pc = jit_dynamic_pc; c->mcnop = 0; c->nbr = 0; c->imm_n = 0;",
+                         "        return;", "    }"]
             deps = sorted(set().union(*(self.node_deps[l] for l in labs)))
             self.fn_deps.append(deps)
             blob = b"".join(self.dec.bytes32(d) or b"\0" * 32 for d in deps)
@@ -1997,6 +2100,7 @@ class LoopGen(KernelGen):
             self.cycle(label, st)
         decl = ["void %s(c66x_core *c, uint64_t end)" % self.name, "{"]
         decl.append("    uint64_t gen = c->code_gen;")
+        decl.append("    c->jit_stop = end;")
         self.declare(decl)
         return "\n".join(decl + self.body + self.cold + ["}"]), len(self.labels)
 
@@ -2015,13 +2119,9 @@ class LoopGen(KernelGen):
 # So a hop is not a call. The function records where to go and returns, and
 # jit_run enters the next one from the entry wrapper's frame, leaving exactly
 # one jit_fn frame on the stack however far the compiled code travels.
-HOP_RUN = r'''#ifndef JIT_CORE_STATE
-_Thread_local int jit_hop_fn = -1;
-_Thread_local unsigned jit_hop_entry;
-#endif
-
-static void jit_run(c66x_core *c, uint64_t end, int fn, unsigned entry, uint64_t gen)
+HOP_RUN = r'''static void jit_run(c66x_core *c, uint64_t end, int fn, unsigned entry, uint64_t gen)
 {
+    c->jit_stop = end;
     for (;;) {
         jit_hop_fn = -1;
         jit_fns[fn](c, end, entry, gen);
@@ -2046,16 +2146,9 @@ PRELUDE = r'''/* Generated by qemu/c6x/tools/c14_jitgen.py -- do not edit. */
  * The generated functions are far too large to call one another directly.
  * This and the rounding mode below live in the core being run, which every
  * generated function has at hand: thread-local storage costs a resolver call
- * on each use, several per floating-point instruction. A core built before
- * it had room for them (module ABI 12) gets the thread-local variables its
- * modules always used. */
-#ifdef JIT_CORE_STATE
+ * on each use, several per floating-point instruction. */
 #define jit_hop_fn (c->jit_hop_fn)
 #define jit_hop_entry (c->jit_hop_entry)
-#else
-extern _Thread_local int jit_hop_fn;
-extern _Thread_local unsigned jit_hop_entry;
-#endif
 
 static const int jit_fe_mode[4] = { FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD };
 
@@ -2463,18 +2556,9 @@ static __attribute__((noinline, noreturn, cold)) void jit_fatal(c66x_core *c, ui
 '''
 
 
-def make_prelude(round_batch=False, wide_mem=False, core_state=True):
-    # round_batch is how every module rounds now; the option is kept for callers
-    return (('#define JIT_CORE_STATE 1\n' if core_state else '') + PRELUDE
+def make_prelude(wide_mem=False):
+    return (PRELUDE
             + (WIDE_PRELUDE if wide_mem else ''))
-
-
-def rounding_wrapper(code, name):
-    """Restore the core's nearest mode on every compiled loop exit."""
-    signature = "void %s(c66x_core *c, uint64_t end)" % name
-    implementation = name + "_impl"
-    code = code.replace(signature, "static void %s(c66x_core *c, uint64_t end)" % implementation, 1)
-    return code + "\n" + signature + " { %s(c, end); }\n" % implementation
 
 
 WIDE_PRELUDE = r'''
@@ -2578,14 +2662,16 @@ def main():
                     help="cancel this compilation tree when the parent emulator exits")
     ap.add_argument("--wide-mem", action="store_true",
                     help="combine paired RAM loads/stores (experimental; verify with an EXACT replay)")
-    ap.add_argument("--round-batch", action="store_true",
-                    help="keep host rounding modes inside compiled DSP batches (verify with an EXACT replay)")
     # 16-17 gcc at once (~0.8 GB each) beside a running deck hung the WSL VM (c16)
     ap.add_argument("--jobs", type=int, default=min(6, os.cpu_count() or 4), help="parallel gcc processes")
     ap.add_argument("--opt", default="2", help="gcc optimisation level")
     ap.add_argument("--cflags", default="", help="extra gcc flags for the module (c16: code size under L3 contention)")
     ap.add_argument("--kernels", type=int, default=64, help="most SPLOOP kernels to compile")
     ap.add_argument("--fn-nodes", dest="fn_nodes", type=int, default=FN_NODES, help="states per generated C function")
+    ap.add_argument("--layout", choices=("loops", "discovery"), default="discovery",
+                    help="keep fitting control-flow loops within a function, or use discovery order")
+    ap.add_argument("--no-dynamic", dest="dynamic", action="store_false",
+                    help="return clean indirect branches to the interpreter instead of local dispatch")
     ap.add_argument("--clean-prof", dest="clean_prof", default=None,
                     help="profile dir (taken with a module loaded) whose free interpreted packets become clean-only roots")
     ap.add_argument("--clean-roots", dest="clean_roots", type=int, default=0, help="most clean-only roots")
@@ -2632,14 +2718,16 @@ def main():
         a.only = set(a.only)
 
     dec = Decoder(a.prof, a.lib)
-    # The prelude reads core fields that exist from this header's ABI on: a
-    # module for a core built before them would read past its struct.
+    # A module is compiled against the core header beside this script and
+    # reads fields that exist from its ABI on: one for a core of another ABI
+    # would read past that core's struct. (The core checks the module's ABI
+    # again when it loads it.)
     with open(os.path.join(CORE_DIR, "c66x_core_int.h")) as header:
         core_abi = next(int(line.split()[2]) for line in header if line.startswith("#define C66X_JIT_ABI "))
-    if dec.abi != core_abi:
+    if dec.abi is not None and dec.abi != core_abi:
         sys.exit("profile written by a core with module ABI %d; this generator builds ABI %d only"
                  % (dec.abi, core_abi))
-    prelude = make_prelude(a.round_batch, WIDE_MEM, dec.abi >= CORE_STATE_ABI)
+    prelude = make_prelude(WIDE_MEM)
     if a.idle_head is not None:
         dec.idle_head = a.idle_head
     if a.kind_w < 0:
@@ -2706,6 +2794,8 @@ def main():
     mg = ModuleGen(dec, sites, a.nodes, a.total)
     mg.cold_min = a.cold
     mg.fn_nodes = a.fn_nodes
+    mg.layout = a.layout
+    mg.dynamic = a.dynamic
     mg.clean = a.clean
     mg.chain = a.chain
     for pc in roots:
@@ -2769,7 +2859,7 @@ def main():
         if pc not in mg.entries:
             continue
         lab = mg.entries[pc]
-        f = lab // mg.fn_nodes
+        f = mg.fn_of[lab]
         name = "root_%08x" % pc
         extern.append("static void %s(c66x_core *c, uint64_t end) { jit_refresh(c); jit_run(c, end, %d, %d, c->code_gen); }"
                       % (name, f, lab))
@@ -2777,7 +2867,7 @@ def main():
             u32(pc), u32(dec.idle_head), name, len(mg.fn_deps[f]), f, f, f))
     table0 = []
     for pc, lab in sorted(mg.clean_entries.items()):
-        f = lab // mg.fn_nodes
+        f = mg.fn_of[lab]
         name = "clean_%08x" % pc
         extern.append("static void %s(c66x_core *c, uint64_t end) { jit_refresh(c); jit_run(c, end, %d, %d, c->code_gen); }"
                       % (name, f, lab))
@@ -2785,7 +2875,7 @@ def main():
             u32(pc), u32(dec.idle_head), name, len(mg.fn_deps[f]), f, f, f))
     qtable = []
     for pc, (lab, rem, target) in sorted(mg.qentries.items()):
-        f = lab // mg.fn_nodes
+        f = mg.fn_of[lab]
         name = "qroot_%08x" % pc
         extern.append("static void %s(c66x_core *c, uint64_t end) { jit_refresh(c); jit_run(c, end, %d, %d, c->code_gen); }"
                       % (name, f, lab))
@@ -2802,16 +2892,12 @@ def main():
             continue
         kg = KernelGen(dec, k, a.nodes, uid, sites, kind_w)
         code, nn = kg.generate()
-        if a.round_batch:
-            code = rounding_wrapper(code, kg.name)
         nodes += nn
         codes.append(code)
         dname = "0"
         if a.drain and k.dynlen > k.ii:
             dg = KernelGen(dec, k, a.nodes, uid, sites, kind_w, drain=True)
             dcode, dnn = dg.generate()
-            if a.round_batch:
-                dcode = rounding_wrapper(dcode, dg.name)
             nodes += dnn
             codes.append(dcode)
             dname = dg.name
@@ -2845,8 +2931,6 @@ def main():
                 continue
             seen.add(k.addr)
             code, nn = lg.generate()
-            if a.round_batch:
-                code = rounding_wrapper(code, lg.name)
             nodes += nn
             codes.append(code)
             n = lg.name
@@ -2874,8 +2958,6 @@ def main():
                               + extern[0] + "\n\n" + "\n\n".join(ch) + "\n")
         srcs.append(path)
     main_parts = [prelude, "uint64_t jit_site_n[%d];" % nsites] + extern
-    if a.round_batch:
-        main_parts.append("#ifndef JIT_CORE_STATE\n_Thread_local int jit_round_mode = FE_TONEAREST;\n#endif")
     main_parts.append("static const c66x_jit_region regions[] = {\n%s\n};" % "\n".join(table or ["    { 0 }"]))
     main_parts.append("static const c66x_jit_kernel kernels[] = {\n%s\n};" % "\n".join(ktable or ["    { 0 }"]))
     main_parts.append("static const c66x_jit_region regions0[] = {\n%s\n};" % "\n".join(table0 or ["    { 0 }"]))
@@ -2889,7 +2971,7 @@ def main():
     main_parts.append('__attribute__((visibility("default"))) const char c66x_jit_isa[] = "%s";' % dec.isa)
     main_parts.append('__attribute__((visibility("default"))) '
                       'const c66x_jit_module c66x_jit_exports = { %s, %d, regions, %d, kernels, %d, regions0, '
-                      '%d, loops, %d, qregions };' % ("C66X_JIT_ABI" if dec.abi >= CORE_STATE_ABI else "%d" % dec.abi,
+                      '%d, loops, %d, qregions };' % ("C66X_JIT_ABI",
                                                       len(table), len(ktable), len(table0), len(ltable), len(qtable)))
     path = a.out + ".main.c"
     open(path, "w").write("\n\n".join(main_parts) + "\n")

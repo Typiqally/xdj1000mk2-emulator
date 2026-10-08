@@ -441,10 +441,12 @@ void exec_insn(c66x_core *c, c66x_insn *in, xctx *x)
         return;
     case H_DINT:
         /* DINT/RINT move GIE to/from SGIE (SPRU732 DINT description). */
+        c66x_jit_break(c);
         c->cr[CR_TSR] = (c->cr[CR_TSR] & ~(TSR_GIE | TSR_SGIE))
                         | ((c->cr[CR_TSR] & TSR_GIE) ? TSR_SGIE : 0);
         return;
     case H_RINT:
+        c66x_jit_break(c);
         c->cr[CR_TSR] = (c->cr[CR_TSR] & ~TSR_GIE)
                         | ((c->cr[CR_TSR] & TSR_SGIE) ? TSR_GIE : 0);
         return;

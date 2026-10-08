@@ -19,8 +19,10 @@
 /* 13: generated code keeps its hop target and rounding mode in fields
  * appended to the core, which a core built before them does not have.
  * 14: generated code reads plain RAM through the core's page tables and takes
- * each unit's host rounding mode from jit_rm. */
-#define C66X_JIT_ABI 14
+ * each unit's host rounding mode from jit_rm.
+ * 15: a compiled state tests one cycle bound, jit_stop, which the core pulls
+ * in whenever a region has to look at its exit conditions again. */
+#define C66X_JIT_ABI 15
 /* Disposable adaptive caches also track compiler policy changes which leave
  * the module ABI intact. Explicit C66X_JIT modules still use the ABI check. */
 #define C66X_JIT_CACHE_VERSION 3
@@ -328,9 +330,19 @@ struct c66x_core {
     const uintptr_t *jit_ld_pt, *jit_st_pt;
     /* The host rounding mode of FADCR side 1/2 and FMCR side 1/2. */
     int      jit_rm[4];
+    /* The cycle a compiled region runs to before it looks at its exit
+     * conditions again: the end of its budget, a change of code generation, a
+     * deliverable interrupt. The region sets it to its budget's end; whatever
+     * can change one of the other two pulls it to 0 (c66x_jit_break), so a
+     * state tests this one bound instead of all three every cycle. */
+    uint64_t jit_stop;
 };
 
 #define C66X_PT_PAGES (1u << (32 - FP_PAGE_SHIFT))
+
+/* Code was dropped, an interrupt flag or an interrupt enable changed: a
+ * compiled region must evaluate its exit conditions at its next cycle. */
+static inline void c66x_jit_break(c66x_core *c) { c->jit_stop = 0; }
 
 /* An access of n bytes at ea that stays inside its page. */
 #define C66X_IN_PAGE(ea, n) ((n) == 1 || ((ea) & ((1u << FP_PAGE_SHIFT) - 1)) <= (1u << FP_PAGE_SHIFT) - (n))

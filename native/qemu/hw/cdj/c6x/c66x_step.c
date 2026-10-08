@@ -197,6 +197,7 @@ int gather_packet(c66x_core *c, uint32_t pc, c66x_insn **pk, unsigned *n,
             memset(c->pkc, 0, sizeof c->pkc);
             c->nxpk = 0;
             c->code_gen++;
+            c66x_jit_break(c);
             c->xpk_flushes++;
         }
         xpk_ent *x = &c->xpk[c->nxpk++];
@@ -600,8 +601,13 @@ c66x_stop c66x_step(c66x_core *c, uint64_t budget, uint64_t *executed)
     c66x_stop stop = C66X_STOP_BUDGET;
     c66x_insn *pm[MAX_PK], *buf[MAX_PK];
 
-    if (c->jit && c->jit->auto_dir)
+    /* The machine steps a hundred thousand times a second: the clock and the
+     * compile thread's result are looked at once per JIT_POLL_CYCLES cycles
+     * (about 5 ms of DSP time), far finer than a batch's interval. */
+    if (c->jit && c->jit->auto_dir && c->cycle >= c->jit->auto_poll_cycle) {
+        c->jit->auto_poll_cycle = c->cycle + JIT_POLL_CYCLES;
         jit_auto_poll(c);
+    }
     /* Whichever thread runs this step brings its own FPU state. */
     c->jit_round_mode = c66x_fegetround();
     if (__builtin_expect(c->idle_auto, 0) && c->cycle >= c->idle_auto_at)

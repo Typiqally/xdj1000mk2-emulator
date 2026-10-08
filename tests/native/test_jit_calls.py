@@ -29,7 +29,7 @@ class CallTests(unittest.TestCase):
             env={k:v for k,v in os.environ.items() if not k.startswith('C66X_')}
             gen=subprocess.run([sys.executable,str(DSP/'tools/c14_jitgen.py'),str(p),str(p/'m'),
                 '--lib',str(LIB),'--roots','1','--min','0','--kernels','0','--cold','0','--nodes','128',
-                '--fn-nodes','128','--total','256','--round-batch'],env=env,capture_output=True,text=True)
+                '--fn-nodes','128','--total','256'],env=env,capture_output=True,text=True)
             self.assertEqual(gen.returncode,0,gen.stderr)
             source=p/'test.c';source.write_text(r'''
 #include <assert.h>

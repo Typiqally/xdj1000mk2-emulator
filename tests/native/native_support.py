@@ -5,6 +5,14 @@ import subprocess
 import tempfile
 
 _workspace = None
+CORE = Path(__file__).resolve().parents[2]/'native/qemu/hw/cdj/c6x'
+
+def cache_version():
+    """C66X_JIT_CACHE_VERSION: what a batch's m.cache must hold to be loaded."""
+    for line in (CORE/'c66x_core_int.h').read_text().splitlines():
+        if line.startswith('#define C66X_JIT_CACHE_VERSION '):
+            return int(line.split()[2])
+    raise RuntimeError('C66X_JIT_CACHE_VERSION is not defined')
 
 def core_library():
     global _workspace

@@ -391,6 +391,7 @@ void c66x_set_irq(c66x_core *c, int line, int level)
     }
     if (level && !(c->irq_level & bit)) {
         c->ifr |= bit;
+        c66x_jit_break(c);
         c->irq_level |= bit;
         if (line >= 0 && line < 16)
             c->st.irq_edges[line]++;

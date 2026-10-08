@@ -274,6 +274,7 @@ static inline uint32_t ctrl_read(c66x_core *c, unsigned crlo, uint32_t pce1)
 
 static inline void ctrl_write_now(c66x_core *c, unsigned crlo, uint32_t v)
 {
+    c66x_jit_break(c);      /* IFR, IER, GIE: which interrupt is deliverable */
     switch (crlo) {
     case CR_CSR:
         /* SPRUFE8B table 2-9: ID/revision/EN read-only. Writing SAT=0
@@ -462,10 +463,12 @@ struct c66x_jit {
     struct { char *prefix; uint32_t head; uint8_t any_head; } auto_noted[JIT_MODS];
     unsigned auto_nnoted;
     uint32_t auto_batch_head;       /* the head the batch being compiled was started for */
-    uint64_t auto_poll_cycle;       /* jit_auto_poll looks at the clock again from this cycle on */
+    uint64_t auto_poll_cycle;       /* c66x_step polls again from this cycle on (JIT_POLL_CYCLES) */
     uint32_t load_head;             /* jit_load: the head of the module just loaded */
     uint8_t load_any_head;          /* ... or that it has no region to tell */
 };
+
+#define JIT_POLL_CYCLES (UINT64_C(1) << 21)
 
 static inline unsigned jit_slot(uint32_t pc) { return (pc * 2654435761u) >> 18; }
 

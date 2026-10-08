@@ -102,6 +102,39 @@ fn engine_patches_apply_inside_nested_source_tree_and_are_idempotent() {
     build::apply_patch(&source, &patch).unwrap();
 }
 #[test]
+fn a_built_source_tree_keeps_its_patch_set_across_rebuilds() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("output/engine/source");
+    fs::create_dir_all(&source).unwrap();
+    let file = source.join("Kconfig");
+    fs::write(&file, "base\n").unwrap();
+    let patch = dir.path().join("kconfig.patch");
+    fs::write(
+        &patch,
+        "--- a/Kconfig\n+++ b/Kconfig\n@@ -1 +1,2 @@\n base\n+patched\n",
+    )
+    .unwrap();
+    let patches = [patch.clone()];
+    build::apply_patches(&source, &patches).unwrap();
+    assert_eq!(fs::read_to_string(&file).unwrap(), "base\npatched\n");
+    // The machine install appends to the patched file: neither direction of
+    // the patch applies any more, and the rebuild must not need it to.
+    fs::write(&file, "base\npatched\ninstalled machine\n").unwrap();
+    build::apply_patches(&source, &patches).unwrap();
+    assert_eq!(
+        fs::read_to_string(&file).unwrap(),
+        "base\npatched\ninstalled machine\n"
+    );
+    // Another set is not laid over a tree that carries this one.
+    fs::write(
+        &patch,
+        "--- a/Kconfig\n+++ b/Kconfig\n@@ -1 +1,2 @@\n base\n+different\n",
+    )
+    .unwrap();
+    let error = build::apply_patches(&source, &patches).unwrap_err();
+    assert!(format!("{error:#}").contains("remove it to rebuild"));
+}
+#[test]
 fn component_records_reject_overlap_and_duplicate_entries() {
     let base = common::component("XDJ-1000MK2 MAINVer1.45", 0, 0xa0000000);
     for record in [

@@ -609,7 +609,8 @@ static uint64_t hpi_read(void *opaque, hwaddr off, unsigned size)
             val = 0;
             dsp_unmodeled(s, s->hpia, size, 0, false);
         }
-        s->reads++;
+        /* MAIN is the only writer; the DSP worker publishes the count. */
+        qatomic_set(&s->reads, s->reads + 1);
         cdj_dsp_count(&s->polls, s->hpia, val);
         if ((off >> 18) == 2) {
             s->hpia += 4;
@@ -837,7 +838,7 @@ static char *performance_state_locked(CdjDspHost *h)
         qatomic_read(&h->perf.worker_cpu_us), qatomic_read(&h->perf.advance_us), qatomic_read(&h->perf.thread_wait_us),
         qatomic_read(&h->perf.host_calls), qatomic_read(&h->perf.host_wait_us),
         qatomic_read(&h->perf.bql_wait_us), qatomic_read(&h->perf.react_us),
-        h->commands, h->react_cycles, c6747.reads, c6747.writes, h->perf.step_max_us, h->perf.step_max_pc,
+        h->commands, h->react_cycles, qatomic_read(&c6747.reads), c6747.writes, h->perf.step_max_us, h->perf.step_max_pc,
         h->perf.slow_steps, c66x_jit_chain_exits(h->core),
         idle_head, idle_confirmed ? "true" : "false", h->idle_steps, h->idle_skipped_cycles, jit);
 }

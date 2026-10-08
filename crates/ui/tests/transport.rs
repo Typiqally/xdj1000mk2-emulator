@@ -5,7 +5,52 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use xdj_ui::rfb::Framebuffer;
 use xdj_ui::transport::{Display, Latest};
+
+#[test]
+fn pending_damage_survives_frame_coalescing_and_small_updates_stay_small() {
+    let latest = Latest::default();
+    let mut fb = Framebuffer::new(3, 2).unwrap();
+    latest.publish(&mut fb, 1);
+    let first = latest.take().unwrap();
+    assert_eq!(first.patch.origin, [0, 0]);
+    assert_eq!(first.patch.size, [3, 2]);
+
+    fb.raw(0, 0, 1, 1, &[0, 0, 255, 0]).unwrap();
+    latest.publish(&mut fb, 2);
+    fb.raw(2, 1, 1, 1, &[255, 0, 0, 0]).unwrap();
+    latest.publish(&mut fb, 3);
+    let combined = latest.take().unwrap();
+    assert_eq!(combined.sequence, 3);
+    assert_eq!(combined.patch.origin, [0, 0]);
+    assert_eq!(combined.patch.size, [3, 2]);
+    assert_eq!(&combined.rgba[..4], &[255, 0, 0, 255]);
+    assert_eq!(&combined.rgba[20..], &[0, 0, 255, 255]);
+
+    fb.raw(1, 0, 1, 1, &[0, 255, 0, 0]).unwrap();
+    latest.publish(&mut fb, 4);
+    let small = latest.take().unwrap();
+    assert_eq!(small.patch.origin, [1, 0]);
+    assert_eq!(small.patch.size, [1, 1]);
+    assert_eq!(small.rgba, [0, 255, 0, 255]);
+    latest.publish(&mut fb, 5);
+    assert!(latest.take().is_none());
+}
+
+#[test]
+fn resize_replaces_pending_damage_with_a_complete_new_frame() {
+    let latest = Latest::default();
+    let mut fb = Framebuffer::new(3, 2).unwrap();
+    latest.publish(&mut fb, 1);
+    fb = Framebuffer::new(1, 1).unwrap();
+    fb.raw(0, 0, 1, 1, &[0, 255, 0, 0]).unwrap();
+    latest.publish(&mut fb, 2);
+    let frame = latest.take().unwrap();
+    assert_eq!(frame.size, [1, 1]);
+    assert_eq!(frame.patch.size, [1, 1]);
+    assert_eq!(frame.rgba, [0, 255, 0, 255]);
+}
 
 #[test]
 fn latest_mailbox_replaces_stale_frames() {

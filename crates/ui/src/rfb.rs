@@ -2,10 +2,33 @@
 use anyhow::{Result, bail, ensure};
 use std::io::{Read, Write};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Damage {
+    pub origin: [usize; 2],
+    pub size: [usize; 2],
+}
+impl Damage {
+    pub fn union(self, other: Self) -> Self {
+        let origin = [
+            self.origin[0].min(other.origin[0]),
+            self.origin[1].min(other.origin[1]),
+        ];
+        let end = [
+            (self.origin[0] + self.size[0]).max(other.origin[0] + other.size[0]),
+            (self.origin[1] + self.size[1]).max(other.origin[1] + other.size[1]),
+        ];
+        Self {
+            origin,
+            size: [end[0] - origin[0], end[1] - origin[1]],
+        }
+    }
+}
+
 pub struct Framebuffer {
     pub width: usize,
     pub height: usize,
     pixels: Vec<u8>,
+    damage: Option<Damage>,
 }
 impl Framebuffer {
     pub fn new(width: usize, height: usize) -> Result<Self> {
@@ -21,6 +44,10 @@ impl Framebuffer {
             width,
             height,
             pixels,
+            damage: Some(Damage {
+                origin: [0, 0],
+                size: [width, height],
+            }),
         })
     }
     pub fn raw(&mut self, x: usize, y: usize, w: usize, h: usize, raw: &[u8]) -> Result<()> {
@@ -34,6 +61,11 @@ impl Framebuffer {
             "Invalid display rectangle"
         );
         ensure!(raw.len() == w * h * 4, "Truncated display rectangle");
+        let damage = Damage {
+            origin: [x, y],
+            size: [w, h],
+        };
+        self.damage = Some(self.damage.map_or(damage, |old| old.union(damage)));
         for row in 0..h {
             let dest = ((y + row) * self.width + x) * 4;
             for (out, input) in self.pixels[dest..dest + w * 4]
@@ -47,6 +79,23 @@ impl Framebuffer {
     }
     pub fn rgba(&self) -> &[u8] {
         &self.pixels
+    }
+    pub fn take_damage(&mut self) -> Option<Damage> {
+        self.damage.take()
+    }
+    pub fn copy_damage(&self, damage: Damage) -> Vec<u8> {
+        let [x, y] = damage.origin;
+        let [width, height] = damage.size;
+        if width == self.width {
+            let start = y * self.width * 4;
+            return self.pixels[start..start + width * height * 4].to_vec();
+        }
+        let mut pixels = Vec::with_capacity(width * height * 4);
+        for row in y..y + height {
+            let start = (row * self.width + x) * 4;
+            pixels.extend_from_slice(&self.pixels[start..start + width * 4]);
+        }
+        pixels
     }
 }
 fn bytes<const N: usize>(stream: &mut impl Read) -> Result<[u8; N]> {

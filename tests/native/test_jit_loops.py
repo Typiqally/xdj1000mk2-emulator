@@ -43,7 +43,7 @@ class WholeLoopTests(unittest.TestCase):
             env = {k:v for k,v in os.environ.items() if not k.startswith('C66X_')}
             result = subprocess.run([sys.executable,str(DSP/'tools/c14_jitgen.py'),str(folder),
                 str(folder/'m'),'--lib',str(LIB),'--roots','0','--kernels','0','--loops','1',
-                '--lmin','0','--loop-only',hex(root),'--round-batch'],env=env,capture_output=True,text=True)
+                '--lmin','0','--loop-only',hex(root)],env=env,capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stderr)
             runner = folder/'test.c'
             runner.write_text(r'''

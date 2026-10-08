@@ -646,10 +646,11 @@ impl DeckApp {
             self.metrics.frames += 1;
             let age = frame.received.elapsed().as_micros() as u64;
             let start = Instant::now();
-            let image = egui::ColorImage::from_rgba_unmultiplied(frame.size, &frame.rgba);
+            // RFB normalizes alpha to 255, so these bytes are already premultiplied.
+            let image = egui::ColorImage::from_rgba_premultiplied(frame.patch.size, &frame.rgba);
             if let Some(texture) = &mut self.texture {
                 if texture.size() == frame.size {
-                    texture.set_partial([0, 0], image, egui::TextureOptions::NEAREST);
+                    texture.set_partial(frame.patch.origin, image, egui::TextureOptions::NEAREST);
                 } else {
                     texture.set(image, egui::TextureOptions::NEAREST);
                 }
@@ -657,7 +658,18 @@ impl DeckApp {
                 self.texture =
                     Some(ctx.load_texture("firmware LCD", image, egui::TextureOptions::NEAREST));
             }
-            self.framebuffer = Some((frame.size, frame.rgba));
+            if frame.patch.origin == [0, 0] && frame.patch.size == frame.size {
+                self.framebuffer = Some((frame.size, frame.rgba));
+            } else if let Some((size, pixels)) = &mut self.framebuffer {
+                debug_assert_eq!(*size, frame.size);
+                let [x, y] = frame.patch.origin;
+                let [width, height] = frame.patch.size;
+                for row in 0..height {
+                    let dest = ((y + row) * size[0] + x) * 4;
+                    pixels[dest..dest + width * 4]
+                        .copy_from_slice(&frame.rgba[row * width * 4..(row + 1) * width * 4]);
+                }
+            }
             if self.metrics.upload_us.len() < 60000 {
                 self.metrics
                     .upload_us
@@ -1960,6 +1972,27 @@ mod tests {
         );
     }
     #[test]
+    fn dirty_frames_upload_only_damage_and_keep_the_full_export_image() {
+        let ctx = egui::Context::default();
+        let mut app = DeckApp::offline(Options::default());
+        let mut fb = crate::rfb::Framebuffer::new(3, 2).unwrap();
+        app.latest.publish(&mut fb, 1);
+        let mut first = ctx.run_ui(egui::RawInput::default(), |ui| app.poll(ui.ctx()));
+        let texture = app.texture.as_ref().unwrap().id();
+        first.textures_delta.clear();
+        fb.raw(2, 1, 1, 1, &[0, 0, 255, 0]).unwrap();
+        app.latest.publish(&mut fb, 2);
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| app.poll(ui.ctx()));
+        let delta = output.textures_delta.set[&texture].last().unwrap();
+        assert_eq!(delta.pos, Some([2, 1]));
+        assert_eq!(delta.image.size(), [1, 1]);
+        let (size, pixels) = app.framebuffer.as_ref().unwrap();
+        assert_eq!(*size, [3, 2]);
+        assert_eq!(&pixels[20..24], &[255, 0, 0, 255]);
+        assert_eq!(&pixels[..4], &[0, 0, 0, 255]);
+        output.textures_delta.clear();
+    }
+    #[test]
     fn consecutive_frames_update_the_existing_gpu_texture() {
         let ctx = egui::Context::default();
         let mut app = DeckApp::offline(Options::default());
@@ -1967,6 +2000,10 @@ mod tests {
         {
             app.latest.offer(Frame {
                 size,
+                patch: crate::rfb::Damage {
+                    origin: [0, 0],
+                    size,
+                },
                 rgba: vec![255; size[0] * size[1] * 4],
                 received: Instant::now(),
                 sequence,

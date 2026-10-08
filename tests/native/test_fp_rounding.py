@@ -4,6 +4,7 @@ import importlib.util
 import subprocess
 import tempfile
 import unittest
+from native_support import core_library
 ROOT = Path(__file__).resolve().parents[2]
 DSP = ROOT / 'native/qemu/hw/cdj/c6x'
 class RoundingTests(unittest.TestCase):
@@ -11,16 +12,16 @@ class RoundingTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('jitgen', DSP / 'tools/c14_jitgen.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        code = module.make_prelude(round_batch=True) + r'''
+        library = core_library()
+        code = module.make_prelude() + r'''
 #include <assert.h>
-static uint32_t callback(c66x_core *c, uint32_t a, unsigned n) {
+static uint32_t callback(void *opaque, uint32_t a, unsigned n) {
     assert(fegetround() == FE_TONEAREST);
     return 0x12345678;
 }
 int main(void) {
-    c66x_core *c = calloc(1, sizeof(*c));
-    c66x_jit_api api = { .mem_read = callback };
-    c->api = &api;
+    c66x_bus bus = { .read = callback };
+    c66x_core *c = c66x_new(&bus);
     uint32_t x[] = {0, 0x80000000, 0x3f800000, 0xbf800000, 0x33800000,
       0xb3800000, 0x3f800001, 0x7f7fffff, 0x00800000, 1, 0x7f800000, 0x7fc12345};
     for (int op = 0; op < 3; op++) for (int a = 0; a < 12; a++)
@@ -34,24 +35,28 @@ int main(void) {
         /* Keep the preceding operation's host mode; the guest mode must
          * still be selected, including an explicit return to nearest. */
         fesetround(jit_fe_mode[(mode + 1) & 3]); feclearexcept(FE_ALL_EXCEPT);
+        c->jit_round_mode = fegetround(); /* the c66x_step entry contract */
         jit_round_enter();
         c->cr[op == 2 ? CR_FMCR : CR_FADCR] = (unsigned)mode << 9;
+        c66x_round_sync(c);
         assert(jit_fop(c, op == 2 ? 6 : 0, 1, x[a], x[b], kind) == bits);
         assert(fetestexcept(FE_ALL_EXCEPT) == flags);
     }
     fesetround(FE_DOWNWARD);
+    c->jit_round_mode = fegetround();
     jit_round_enter();
     assert(jit_f_to_i32(1.5, 0) == 2);
     fesetround(FE_UPWARD);
+    c->jit_round_mode = fegetround();
     jit_round_enter();
     /* The mode in use belongs to the core being run, not to the thread: no
      * thread-local lookup on the floating-point path. */
-    assert(jit_round_mode == FE_UPWARD);
-    assert((char *)&jit_round_mode > (char *)c && (char *)&jit_round_mode < (char *)(c + 1));
+    assert(c->jit_round_mode == FE_UPWARD);
+    assert((char *)&c->jit_round_mode > (char *)c && (char *)&c->jit_round_mode < (char *)(c + 1));
     c->ram[0].size = 0;
     assert(jit_load(c, 0x1234, 4) == 0x12345678);
     jit_round_sync(); assert(fegetround() == FE_TONEAREST);
-    free(c);
+    c66x_free(c);
 }
 '''
         with tempfile.TemporaryDirectory() as d:
@@ -59,7 +64,7 @@ int main(void) {
             binary = Path(d) / 'batch'
             subprocess.run(['cc', '-std=gnu11', '-O2', '-frounding-math',
                             '-ffp-contract=off', '-I', str(DSP), str(src),
-                            '-o', str(binary)], check=True, capture_output=True)
+                            str(library), '-o', str(binary)], check=True, capture_output=True)
             result = subprocess.run([str(binary)], capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr.decode())
 

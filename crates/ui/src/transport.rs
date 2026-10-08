@@ -27,9 +27,33 @@ impl<T> Latest<T> {
 }
 pub struct Frame {
     pub size: [usize; 2],
+    pub patch: rfb::Damage,
     pub rgba: Vec<u8>,
     pub received: Instant,
     pub sequence: u64,
+}
+impl Latest<Frame> {
+    /// Publish all damage since the GUI's last take, including overwritten
+    /// mailbox frames. The reader's framebuffer stays the canonical image.
+    pub fn publish(&self, fb: &mut rfb::Framebuffer, sequence: u64) {
+        let Some(mut patch) = fb.take_damage() else {
+            return;
+        };
+        let size = [fb.width, fb.height];
+        let mut pending = self.0.lock().unwrap();
+        if let Some(previous) = pending.as_ref()
+            && previous.size == size
+        {
+            patch = patch.union(previous.patch);
+        }
+        *pending = Some(Frame {
+            size,
+            patch,
+            rgba: fb.copy_damage(patch),
+            received: Instant::now(),
+            sequence,
+        });
+    }
 }
 enum Socket {
     Tcp(TcpStream),
@@ -127,12 +151,7 @@ impl Display {
                 while !cancel.load(Ordering::Relaxed) {
                     if rfb::update(&mut reader, &mut fb)? {
                         sequence += 1;
-                        latest.offer(Frame {
-                            size: [fb.width, fb.height],
-                            rgba: fb.rgba().to_vec(),
-                            received: Instant::now(),
-                            sequence,
-                        });
+                        latest.publish(&mut fb, sequence);
                         wake();
                     }
                 }

@@ -143,7 +143,6 @@ int main(void) {
             args = json.loads((folder / 'cache/batch0/m.args').read_text())
             self.assertIn('--qroots', args)
             self.assertIn('--qmin', args)
-            self.assertIn('--round-batch', args)
             self.assertIn('--no-chain', args)
             self.assertGreater(int(args[args.index('--owner-pid') + 1]), 0)
             self.assertEqual(args[args.index('--cold') + 1], '0')

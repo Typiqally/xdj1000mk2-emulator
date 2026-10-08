@@ -30,7 +30,9 @@ typedef struct {
 typedef struct {
     ramreg ram[2]; unsigned nram,last_ram,nxpk,code_gen; uint8_t pkc[16];
 } c66x_core;
-static unsigned metadata_reads;
+static unsigned metadata_reads, breaks;
+/* Dropped code must pull a running compiled region out at its next cycle. */
+static void c66x_jit_break(c66x_core *c) { (void)c; breaks++; }
 static uint8_t *ram_ptr(c66x_core *c,uint32_t a,unsigned n) {
     for(unsigned i=0;i<c->nram;i++) {
         ramreg *r=&c->ram[i];
@@ -51,7 +53,7 @@ int main(void) {
     c.ram[1]=(ramreg){0x20000,sizeof ram,ram,tables[1],pages};
     /* The high-rate audio-data path needs no instruction packet reads. */
     invalidate_code(&c,0x20000+4096,4);
-    assert(metadata_reads==0 && c.code_gen==0);
+    assert(metadata_reads==0 && c.code_gen==0 && breaks==0);
     /* Both addresses share page flags, but have separate decoded packets. */
     fpblk blocks[2][2]={0};
     pages[0]=pages[1]=CP_CODE;
@@ -61,14 +63,14 @@ int main(void) {
     }
     memset(c.pkc,1,sizeof c.pkc); c.nxpk=10;
     invalidate_code(&c,0x20000+4092,8);
-    assert(c.code_gen==4 && c.nxpk==0);
+    assert(c.code_gen==1 && c.nxpk==0 && breaks==1);
     for(unsigned i=0;i<2;i++) for(unsigned j=0;j<2;j++)
         assert(!blocks[i][j].valid && !blocks[i][j].insn[0].pk_n);
     for(unsigned i=0;i<sizeof c.pkc;i++) assert(!c.pkc[i]);
     /* A repeated notification changes no generation; zero length is inert. */
     invalidate_code(&c,0x10000+4092,8);
     invalidate_code(&c,0x10000,0);
-    assert(c.code_gen==4);
+    assert(c.code_gen==1 && breaks==1);
 }
 '''
         with tempfile.TemporaryDirectory() as d:

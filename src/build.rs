@@ -5,6 +5,7 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -60,9 +61,7 @@ pub fn engine(args: &Args, root: &Path) -> Result<()> {
         .filter(|p| p.extension().is_some_and(|e| e == "patch"))
         .collect();
     patches.sort();
-    for patch in patches {
-        apply_patch(&source, &patch)?;
-    }
+    apply_patches(&source, &patches)?;
     fs::copy(
         vendor.join("patches/include_exec_cdj-pcring.h"),
         source.join("include/exec/cdj-pcring.h"),
@@ -314,6 +313,35 @@ pub fn header(profile: &Value, bytes: &[u8]) -> Result<String> {
 }
 
 /// Apply only inside the supplied standalone source tree, even below another Git repository.
+/// Apply the patch set once per source tree. The machine sources installed
+/// afterwards edit some of the patched files again (hw/sh4/Kconfig), so a
+/// patch can no longer be checked against a tree that has been built: the
+/// tree records the set it carries instead, and a rebuild of the same set
+/// leaves it alone.
+pub fn apply_patches(source: &Path, patches: &[PathBuf]) -> Result<()> {
+    let mut digest = Sha256::new();
+    for patch in patches {
+        digest.update(patch.file_name().unwrap_or_default().as_encoded_bytes());
+        digest.update([0]);
+        digest.update(fs::read(patch)?);
+    }
+    let applied = format!("{:x}\n", digest.finalize());
+    let marker = source.join(".xdj-patches");
+    util::regular(&marker)?;
+    if fs::read_to_string(&marker).ok().as_deref() == Some(applied.as_str()) {
+        return Ok(());
+    }
+    for patch in patches {
+        apply_patch(source, patch).with_context(|| {
+            format!(
+                "{} carries another patch set; remove it to rebuild from the pinned archive",
+                source.display()
+            )
+        })?;
+    }
+    fs::write(marker, applied)?;
+    Ok(())
+}
 pub fn apply_patch(source: &Path, patch: &Path) -> Result<()> {
     let git = |check: bool, reverse: bool| {
         let mut command = Command::new("git");

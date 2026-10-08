@@ -60,6 +60,7 @@ void invalidate_code(c66x_core *c, uint32_t a, uint32_t n)
         if (!(flags & CP_CODE))
             return;
     }
+    int dropped = 0;
     /* Every mapping of the same host bytes: L2 is mapped at two addresses. */
     for (unsigned i = 0; i < c->nram; i++) {
         ramreg *r = &c->ram[i];
@@ -82,12 +83,18 @@ void invalidate_code(c66x_core *c, uint32_t a, uint32_t n)
                     b->valid = 0;
                     for (int k = 0; k < 16; k++)
                         b->insn[k].pk_n = 0;
-                    memset(c->pkc, 0, sizeof c->pkc);
-                    c->nxpk = 0;
-                    c->code_gen++;
+                    dropped = 1;
                 }
             }
         }
+    }
+    /* A DMA range is one notification. Drop every affected alias before
+     * clearing the packet cache once; no guest execution occurs in this walk. */
+    if (dropped) {
+        memset(c->pkc, 0, sizeof c->pkc);
+        c->nxpk = 0;
+        c->code_gen++;
+        c66x_jit_break(c);
     }
 }
 

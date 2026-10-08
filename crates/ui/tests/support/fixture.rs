@@ -41,15 +41,24 @@ fn serve(mut socket: Stream, stop: &AtomicBool, frames: &AtomicU64, pixels: &[u8
     let started = Instant::now();
     let mut next = Instant::now();
     let mut local = 0;
+    let sparse = std::env::var("XDJ_FIXTURE_DAMAGE").is_ok_and(|s| s == "small");
     while !stop.load(Ordering::Relaxed) {
         let mut request = [0; 10];
         socket.read_exact(&mut request)?;
         if let Some(delay) = next.checked_duration_since(Instant::now()) {
             thread::sleep(delay);
         }
-        // Repeated full frames isolate worst-case upload/presentation cost at 60 Hz.
-        socket.write_all(&[0, 0, 0, 1, 0, 0, 0, 0, 3, 32, 1, 224, 0, 0, 0, 0])?;
-        socket.write_all(pixels)?;
+        if sparse && local > 0 {
+            // Same 60 Hz schedule with 1% LCD damage after the initial frame.
+            socket.write_all(&[0, 0, 0, 1, 0, 100, 0, 100, 0, 80, 0, 48, 0, 0, 0, 0])?;
+            for row in 100..148 {
+                socket.write_all(&pixels[(row * 800 + 100) * 4..(row * 800 + 180) * 4])?;
+            }
+        } else {
+            // Repeated full frames isolate worst-case upload/presentation cost at 60 Hz.
+            socket.write_all(&[0, 0, 0, 1, 0, 0, 0, 0, 3, 32, 1, 224, 0, 0, 0, 0])?;
+            socket.write_all(pixels)?;
+        }
         socket.flush()?;
         local += 1;
         frames.fetch_add(1, Ordering::Relaxed);
