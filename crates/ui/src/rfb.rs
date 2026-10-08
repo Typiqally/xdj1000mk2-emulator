@@ -37,7 +37,7 @@ impl Framebuffer {
             "Invalid display dimensions"
         );
         let mut pixels = vec![0; width * height * 4];
-        for pixel in pixels.chunks_exact_mut(4) {
+        for pixel in pixels.as_chunks_mut::<4>().0 {
             pixel[3] = 255;
         }
         Ok(Self {
@@ -69,8 +69,10 @@ impl Framebuffer {
         for row in 0..h {
             let dest = ((y + row) * self.width + x) * 4;
             for (out, input) in self.pixels[dest..dest + w * 4]
-                .chunks_exact_mut(4)
-                .zip(raw[row * w * 4..(row + 1) * w * 4].chunks_exact(4))
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(raw[row * w * 4..(row + 1) * w * 4].as_chunks::<4>().0)
             {
                 out.copy_from_slice(&[input[2], input[1], input[0], 255]);
             }
