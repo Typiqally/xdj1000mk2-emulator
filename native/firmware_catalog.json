@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "model": "XDJ-1000MK2",
+  "versions": [
+    {
+      "version": "1.45",
+      "sha256": "6fd2a5002b297b86fb8a5931d3debf1b607ff6abaf9d49cd737d3a530002dbcd"
+    },
+    {
+      "version": "1.44",
+      "sha256": "b21d499d8964986216b6a235cff5849300d966d3801b522c17461a42a1ff1448"
+    },
+    {
+      "version": "1.42",
+      "sha256": "3c5efc581edd4b1aa003da5bde11b4ea29427d853dba8e0084459636cb6b2def"
+    },
+    {
+      "version": "1.41",
+      "sha256": "68964a4deb71695a8f0a9363e48738579140f297c624d440e78d8d8438c6cd82"
+    },
+    {
+      "version": "1.40",
+      "sha256": "956bbe517ac56180fa63328b483e0e2e39075af3ef7ecd6cdacc0e998b0e1307"
+    },
+    {
+      "version": "1.30",
+      "sha256": "2a9e3813b07cd7d491a898a1fb7d281ad00d81915a260d37699431cb54776098"
+    },
+    {
+      "version": "1.23",
+      "sha256": "32c820fcf42fa3bfa099a89ef77777e42d1002f0c3b9e01d1a0988f81a8fd228"
+    },
+    {
+      "version": "1.22",
+      "sha256": "fe1c3235d5ee3e0a1503d976ec68e1d5b0d31e2938735e7174966382e4c468be"
+    },
+    {
+      "version": "1.20",
+      "sha256": "33213c8c0902f05017380c36a858d9035f069c5bbee258d31ccfbbac7b05a524"
+    },
+    {
+      "version": "1.10",
+      "sha256": "68defe7174f0c2fdc61a060cdc65690e97f87aa1b5f3c24a75b0c46a8e851238"
+    }
+  ]
+}

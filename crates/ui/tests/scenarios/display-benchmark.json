@@ -1,0 +1,552 @@
+[
+  {
+    "after": 5,
+    "action": "button",
+    "name": "cue",
+    "down": true
+  },
+  {
+    "after": 5.3,
+    "action": "button",
+    "name": "cue",
+    "down": false
+  },
+  {
+    "after": 6,
+    "action": "touch",
+    "x": 200,
+    "y": 210,
+    "down": true
+  },
+  {
+    "after": 6.1,
+    "action": "touch",
+    "x": 200,
+    "y": 210,
+    "down": false
+  },
+  {
+    "after": 7,
+    "action": "pitch",
+    "value": 60000
+  },
+  {
+    "after": 8,
+    "action": "jog",
+    "ticks": 12
+  },
+  {
+    "after": 9,
+    "action": "vinyl-speed",
+    "value": 32
+  },
+  {
+    "after": 10.0,
+    "action": "bench-echo",
+    "seq": 0
+  },
+  {
+    "after": 10.1,
+    "action": "bench-echo",
+    "seq": 1
+  },
+  {
+    "after": 10.2,
+    "action": "bench-echo",
+    "seq": 2
+  },
+  {
+    "after": 10.3,
+    "action": "bench-echo",
+    "seq": 3
+  },
+  {
+    "after": 10.4,
+    "action": "bench-echo",
+    "seq": 4
+  },
+  {
+    "after": 10.5,
+    "action": "bench-echo",
+    "seq": 5
+  },
+  {
+    "after": 10.6,
+    "action": "bench-echo",
+    "seq": 6
+  },
+  {
+    "after": 10.7,
+    "action": "bench-echo",
+    "seq": 7
+  },
+  {
+    "after": 10.8,
+    "action": "bench-echo",
+    "seq": 8
+  },
+  {
+    "after": 10.9,
+    "action": "bench-echo",
+    "seq": 9
+  },
+  {
+    "after": 11.0,
+    "action": "bench-echo",
+    "seq": 10
+  },
+  {
+    "after": 11.1,
+    "action": "bench-echo",
+    "seq": 11
+  },
+  {
+    "after": 11.2,
+    "action": "bench-echo",
+    "seq": 12
+  },
+  {
+    "after": 11.3,
+    "action": "bench-echo",
+    "seq": 13
+  },
+  {
+    "after": 11.4,
+    "action": "bench-echo",
+    "seq": 14
+  },
+  {
+    "after": 11.5,
+    "action": "bench-echo",
+    "seq": 15
+  },
+  {
+    "after": 11.6,
+    "action": "bench-echo",
+    "seq": 16
+  },
+  {
+    "after": 11.7,
+    "action": "bench-echo",
+    "seq": 17
+  },
+  {
+    "after": 11.8,
+    "action": "bench-echo",
+    "seq": 18
+  },
+  {
+    "after": 11.9,
+    "action": "bench-echo",
+    "seq": 19
+  },
+  {
+    "after": 12.0,
+    "action": "bench-echo",
+    "seq": 20
+  },
+  {
+    "after": 12.1,
+    "action": "bench-echo",
+    "seq": 21
+  },
+  {
+    "after": 12.2,
+    "action": "bench-echo",
+    "seq": 22
+  },
+  {
+    "after": 12.3,
+    "action": "bench-echo",
+    "seq": 23
+  },
+  {
+    "after": 12.4,
+    "action": "bench-echo",
+    "seq": 24
+  },
+  {
+    "after": 12.5,
+    "action": "bench-echo",
+    "seq": 25
+  },
+  {
+    "after": 12.6,
+    "action": "bench-echo",
+    "seq": 26
+  },
+  {
+    "after": 12.7,
+    "action": "bench-echo",
+    "seq": 27
+  },
+  {
+    "after": 12.8,
+    "action": "bench-echo",
+    "seq": 28
+  },
+  {
+    "after": 12.9,
+    "action": "bench-echo",
+    "seq": 29
+  },
+  {
+    "after": 13.0,
+    "action": "bench-echo",
+    "seq": 30
+  },
+  {
+    "after": 13.1,
+    "action": "bench-echo",
+    "seq": 31
+  },
+  {
+    "after": 13.2,
+    "action": "bench-echo",
+    "seq": 32
+  },
+  {
+    "after": 13.3,
+    "action": "bench-echo",
+    "seq": 33
+  },
+  {
+    "after": 13.4,
+    "action": "bench-echo",
+    "seq": 34
+  },
+  {
+    "after": 13.5,
+    "action": "bench-echo",
+    "seq": 35
+  },
+  {
+    "after": 13.6,
+    "action": "bench-echo",
+    "seq": 36
+  },
+  {
+    "after": 13.7,
+    "action": "bench-echo",
+    "seq": 37
+  },
+  {
+    "after": 13.8,
+    "action": "bench-echo",
+    "seq": 38
+  },
+  {
+    "after": 13.9,
+    "action": "bench-echo",
+    "seq": 39
+  },
+  {
+    "after": 14.0,
+    "action": "bench-echo",
+    "seq": 40
+  },
+  {
+    "after": 14.100000000000001,
+    "action": "bench-echo",
+    "seq": 41
+  },
+  {
+    "after": 14.2,
+    "action": "bench-echo",
+    "seq": 42
+  },
+  {
+    "after": 14.3,
+    "action": "bench-echo",
+    "seq": 43
+  },
+  {
+    "after": 14.4,
+    "action": "bench-echo",
+    "seq": 44
+  },
+  {
+    "after": 14.5,
+    "action": "bench-echo",
+    "seq": 45
+  },
+  {
+    "after": 14.600000000000001,
+    "action": "bench-echo",
+    "seq": 46
+  },
+  {
+    "after": 14.7,
+    "action": "bench-echo",
+    "seq": 47
+  },
+  {
+    "after": 14.8,
+    "action": "bench-echo",
+    "seq": 48
+  },
+  {
+    "after": 14.9,
+    "action": "bench-echo",
+    "seq": 49
+  },
+  {
+    "after": 15.0,
+    "action": "bench-echo",
+    "seq": 50
+  },
+  {
+    "after": 15.100000000000001,
+    "action": "bench-echo",
+    "seq": 51
+  },
+  {
+    "after": 15.2,
+    "action": "bench-echo",
+    "seq": 52
+  },
+  {
+    "after": 15.3,
+    "action": "bench-echo",
+    "seq": 53
+  },
+  {
+    "after": 15.4,
+    "action": "bench-echo",
+    "seq": 54
+  },
+  {
+    "after": 15.5,
+    "action": "bench-echo",
+    "seq": 55
+  },
+  {
+    "after": 15.600000000000001,
+    "action": "bench-echo",
+    "seq": 56
+  },
+  {
+    "after": 15.7,
+    "action": "bench-echo",
+    "seq": 57
+  },
+  {
+    "after": 15.8,
+    "action": "bench-echo",
+    "seq": 58
+  },
+  {
+    "after": 15.9,
+    "action": "bench-echo",
+    "seq": 59
+  },
+  {
+    "after": 16.0,
+    "action": "bench-echo",
+    "seq": 60
+  },
+  {
+    "after": 16.1,
+    "action": "bench-echo",
+    "seq": 61
+  },
+  {
+    "after": 16.2,
+    "action": "bench-echo",
+    "seq": 62
+  },
+  {
+    "after": 16.3,
+    "action": "bench-echo",
+    "seq": 63
+  },
+  {
+    "after": 16.4,
+    "action": "bench-echo",
+    "seq": 64
+  },
+  {
+    "after": 16.5,
+    "action": "bench-echo",
+    "seq": 65
+  },
+  {
+    "after": 16.6,
+    "action": "bench-echo",
+    "seq": 66
+  },
+  {
+    "after": 16.7,
+    "action": "bench-echo",
+    "seq": 67
+  },
+  {
+    "after": 16.8,
+    "action": "bench-echo",
+    "seq": 68
+  },
+  {
+    "after": 16.9,
+    "action": "bench-echo",
+    "seq": 69
+  },
+  {
+    "after": 17.0,
+    "action": "bench-echo",
+    "seq": 70
+  },
+  {
+    "after": 17.1,
+    "action": "bench-echo",
+    "seq": 71
+  },
+  {
+    "after": 17.2,
+    "action": "bench-echo",
+    "seq": 72
+  },
+  {
+    "after": 17.3,
+    "action": "bench-echo",
+    "seq": 73
+  },
+  {
+    "after": 17.4,
+    "action": "bench-echo",
+    "seq": 74
+  },
+  {
+    "after": 17.5,
+    "action": "bench-echo",
+    "seq": 75
+  },
+  {
+    "after": 17.6,
+    "action": "bench-echo",
+    "seq": 76
+  },
+  {
+    "after": 17.7,
+    "action": "bench-echo",
+    "seq": 77
+  },
+  {
+    "after": 17.8,
+    "action": "bench-echo",
+    "seq": 78
+  },
+  {
+    "after": 17.9,
+    "action": "bench-echo",
+    "seq": 79
+  },
+  {
+    "after": 18.0,
+    "action": "bench-echo",
+    "seq": 80
+  },
+  {
+    "after": 18.1,
+    "action": "bench-echo",
+    "seq": 81
+  },
+  {
+    "after": 18.200000000000003,
+    "action": "bench-echo",
+    "seq": 82
+  },
+  {
+    "after": 18.3,
+    "action": "bench-echo",
+    "seq": 83
+  },
+  {
+    "after": 18.4,
+    "action": "bench-echo",
+    "seq": 84
+  },
+  {
+    "after": 18.5,
+    "action": "bench-echo",
+    "seq": 85
+  },
+  {
+    "after": 18.6,
+    "action": "bench-echo",
+    "seq": 86
+  },
+  {
+    "after": 18.700000000000003,
+    "action": "bench-echo",
+    "seq": 87
+  },
+  {
+    "after": 18.8,
+    "action": "bench-echo",
+    "seq": 88
+  },
+  {
+    "after": 18.9,
+    "action": "bench-echo",
+    "seq": 89
+  },
+  {
+    "after": 19.0,
+    "action": "bench-echo",
+    "seq": 90
+  },
+  {
+    "after": 19.1,
+    "action": "bench-echo",
+    "seq": 91
+  },
+  {
+    "after": 19.200000000000003,
+    "action": "bench-echo",
+    "seq": 92
+  },
+  {
+    "after": 19.3,
+    "action": "bench-echo",
+    "seq": 93
+  },
+  {
+    "after": 19.4,
+    "action": "bench-echo",
+    "seq": 94
+  },
+  {
+    "after": 19.5,
+    "action": "bench-echo",
+    "seq": 95
+  },
+  {
+    "after": 19.6,
+    "action": "bench-echo",
+    "seq": 96
+  },
+  {
+    "after": 19.700000000000003,
+    "action": "bench-echo",
+    "seq": 97
+  },
+  {
+    "after": 19.8,
+    "action": "bench-echo",
+    "seq": 98
+  },
+  {
+    "after": 19.9,
+    "action": "bench-echo",
+    "seq": 99
+  },
+  {
+    "after": 28,
+    "action": "snapshot",
+    "name": "deck"
+  },
+  {
+    "after": 30,
+    "action": "quit"
+  }
+]

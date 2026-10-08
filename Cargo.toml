@@ -1,0 +1,36 @@
+[package]
+name = "xdj-backend"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "Rust host backend for the native XDJ-1000MK2 emulator"
+publish = false
+
+[dependencies]
+xdj-catalog = { path = "crates/catalog" }
+anyhow = "=1.0.104"
+libc = "=0.2.189"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+tempfile = "=3.27.0"
+unicode-normalization = "=0.1.25"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
+
+[workspace]
+members = ["crates/ui", "crates/catalog"]
+resolver = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "=0.6.5", default-features = false, features = ["std"] }
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["NSImage", "NSImageRep", "NSGraphicsContext", "objc2-core-graphics"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["NSArray", "NSDictionary", "NSString", "NSError", "NSGeometry"] }
+objc2-vision = { version = "=0.3.2", default-features = false, features = ["VNRequest", "VNRequestHandler", "VNRecognizeTextRequest", "VNObservation", "VNTypes", "objc2-core-graphics", "objc2-core-foundation"] }

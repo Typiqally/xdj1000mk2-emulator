@@ -1,0 +1,65 @@
+diff --git a/ui/vnc.c b/ui/vnc.c
+index dae5d51..1877d5e 100644
+--- a/ui/vnc.c
++++ b/ui/vnc.c
+@@ -56,7 +56,15 @@
+ #include "io/dns-resolver.h"
+ #include "monitor/monitor.h"
+ 
+-#define VNC_REFRESH_INTERVAL_BASE GUI_REFRESH_INTERVAL_DEFAULT
++/*
++ * CDJ: a connected client is the deck's only screen. Poll the panel at its
++ * own 60 Hz and hold that rate while a client is attached. The stock policy
++ * starts at 30 ms and adds 50 ms after every refresh that found nothing new;
++ * against firmware that draws every few vblanks it never settles, and the
++ * animation arrives late and unevenly. The board's scanout only converts
++ * rows the guest changed, so an idle poll is cheap.
++ */
++#define VNC_REFRESH_INTERVAL_BASE 16
+ #define VNC_REFRESH_INTERVAL_INC  50
+ #define VNC_REFRESH_INTERVAL_MAX  GUI_REFRESH_INTERVAL_IDLE
+ static const struct timeval VNC_REFRESH_STATS = { 0, 500000 };
+@@ -556,10 +564,19 @@ VncInfo2List *qmp_query_vnc_servers(Error **errp)
+         info->clients = qmp_query_client_list(vd);
+         qmp_query_auth(vd->auth, vd->subauth, &info->auth,
+                        &info->vencrypt, &info->has_vencrypt);
++        /*
++         * CDJ: the boards' graphic consoles have no device (they are made
++         * with graphic_console_init(NULL, ...)), and a text console has no
++         * "device" property at all: either crashed "info vnc", which the
++         * launcher asks to learn the port the VNC server took.
++         */
+         if (vd->dcl.con) {
+-            dev = DEVICE(object_property_get_link(OBJECT(vd->dcl.con),
+-                                                  "device", &error_abort));
+-            info->display = g_strdup(dev->id);
++            Object *obj = object_property_get_link(OBJECT(vd->dcl.con),
++                                                   "device", NULL);
++            dev = obj ? DEVICE(obj) : NULL;
++            if (dev) {
++                info->display = g_strdup(dev->id);
++            }
+         }
+         for (i = 0; vd->listener != NULL && i < vd->listener->nsioc; i++) {
+             info->server = qmp_query_server_entry(
+@@ -3226,17 +3243,9 @@ static void vnc_refresh(DisplayChangeListener *dcl)
+         /* vs might be free()ed here */
+     }
+ 
+-    if (has_dirty && rects) {
+-        vd->dcl.update_interval /= 2;
+-        if (vd->dcl.update_interval < VNC_REFRESH_INTERVAL_BASE) {
+-            vd->dcl.update_interval = VNC_REFRESH_INTERVAL_BASE;
+-        }
+-    } else {
+-        vd->dcl.update_interval += VNC_REFRESH_INTERVAL_INC;
+-        if (vd->dcl.update_interval > VNC_REFRESH_INTERVAL_MAX) {
+-            vd->dcl.update_interval = VNC_REFRESH_INTERVAL_MAX;
+-        }
+-    }
++    /* CDJ: no back-off while connected; see VNC_REFRESH_INTERVAL_BASE. */
++    (void)rects;
++    vd->dcl.update_interval = VNC_REFRESH_INTERVAL_BASE;
+ }
+ 
+ static void vnc_connect(VncDisplay *vd, QIOChannelSocket *sioc,

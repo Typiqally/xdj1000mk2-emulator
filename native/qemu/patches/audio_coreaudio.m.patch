@@ -1,0 +1,71 @@
+--- a/audio/coreaudio.m
++++ b/audio/coreaudio.m
+@@ -32,6 +32,7 @@
+ 
+ #define AUDIO_CAP "coreaudio"
+ #include "audio_int.h"
++#include "hw/sh4/cdj/common/xdj_audio_stats.h"
+ 
+ typedef struct coreaudioVoiceOut {
+     HWVoiceOut hw;
+@@ -42,6 +43,8 @@
+     UInt32 audioDevicePropertyBufferFrameSize;
+     AudioDeviceIOProcID ioprocid;
+     bool enabled;
++    XdjAudioStats *xdj_stats;
++    int64_t xdj_stats_origin;
+ } coreaudioVoiceOut;
+ 
+ static const AudioObjectPropertyAddress voice_addr = {
+@@ -324,9 +327,15 @@
+ 
+     frameCount = core->audioDevicePropertyBufferFrameSize;
+     pending_frames = hw->pending_emul / hw->info.bytes_per_frame;
++    if (core->xdj_stats) {
++        xdj_audio_stats_add(core->xdj_stats,
++                           g_get_monotonic_time() - core->xdj_stats_origin,
++                           frameCount, pending_frames);
++    }
+ 
+     /* if there are not enough samples, set signal and return */
+     if (pending_frames < frameCount) {
++        memset(out, 0, outOutputData->mBuffers[0].mDataByteSize);
+         inInputTime = 0;
+         coreaudio_buf_unlock (core, "audioDeviceIOProc(empty)");
+         return 0;
+@@ -573,6 +582,13 @@
+         return -1;
+     }
+ 
++    if (!g_strcmp0(dev->id, "xdj-audio")) {
++        core->xdj_stats = g_new0(XdjAudioStats, 1);
++        core->xdj_stats_origin = g_get_monotonic_time();
++        AUD_log(AUDIO_CAP, "xdj-output origin-us %" PRId64 "\n",
++                core->xdj_stats_origin);
++    }
++
+     obt_as = *as;
+     as = &obt_as;
+     as->fmt = AUDIO_FORMAT_F32;
+@@ -623,6 +639,21 @@
+     }
+ 
+     fini_out_device(core);
++    if (core->xdj_stats) {
++        for (unsigned i = 0; i < XDJ_AUDIO_STATS_BINS; i++) {
++            const XdjAudioBin *b = &core->xdj_stats->bins[i];
++            if (b->callbacks) {
++                AUD_log(AUDIO_CAP, "xdj-output second %u callbacks %" PRIu64
++                        " frames %" PRIu64 " underruns %" PRIu64
++                        " missed %" PRIu64 "\n", i, b->callbacks, b->frames,
++                        b->underruns, b->missed_frames);
++            }
++        }
++        AUD_log(AUDIO_CAP, "xdj-output outside-bins %" PRIu64 "\n",
++                core->xdj_stats->outside_bins);
++        g_free(core->xdj_stats);
++        core->xdj_stats = NULL;
++    }
+ 
+     /* destroy mutex */
+     err = pthread_mutex_destroy(&core->buf_mutex);

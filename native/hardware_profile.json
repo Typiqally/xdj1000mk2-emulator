@@ -1,0 +1,793 @@
+{
+  "schema": 1,
+  "model": "XDJ-1000MK2",
+  "main_cpu": {
+    "part": "R8A77240D500BG2",
+    "ref": "MAIN IC6",
+    "architecture": "SH-4A",
+    "endianness": "little",
+    "cores": 1,
+    "core_hz": 500000000,
+    "rated_max_hz": 500000000,
+    "reference_hz": [
+      100000000,
+      3
+    ],
+    "bus_hz": [
+      250000000,
+      3
+    ],
+    "peripheral_hz": [
+      125000000,
+      3
+    ],
+    "l1_instruction_bytes": 32768,
+    "l1_data_bytes": 32768,
+    "l2_bytes": 262144,
+    "cache_line_bytes": 32,
+    "cache_ways": 4,
+    "itlb_entries": 4,
+    "utlb_entries": 64,
+    "pmb_entries": 16,
+    "backend": "SH7724 descriptor on shared QEMU SH-4A engine",
+    "silicon_id_registers": "canonical values inferred from primary Linux identification/cache masks; exact board stepping and undocumented bits unverified",
+    "sources": [
+      "schematic",
+      "sh7724",
+      "linux_cpu_probe"
+    ],
+    "canonical_pvr": 271584000,
+    "canonical_prr": 512,
+    "canonical_cvr": 1900282381,
+    "boot_clock_mode": 1,
+    "superhyway_hz": [
+      500000000,
+      3
+    ],
+    "clock_rate_basis": "Nominal stock run: FRQCRA=0x8e003508, PLLCR=0x4002; Renesas chapter17 STC x30, IFC /2, SFC /6, BFC /12, P1FC /24. Dynamic CPG effects unqualified."
+  },
+  "main_ram": {
+    "part": "W971GG6SB-25",
+    "refs": [
+      "MAIN IC9",
+      "MAIN IC11"
+    ],
+    "chips": 2,
+    "bits_per_chip": 1073741824,
+    "chip_width_bits": 16,
+    "bus_width_bits": 32,
+    "technology": "DDR2",
+    "size_bytes": 268435456,
+    "base": 134217728,
+    "clock_hz": [
+      500000000,
+      3
+    ],
+    "transfers_per_clock": 2,
+    "chip_rated_clock_hz": 400000000,
+    "sources": [
+      "schematic",
+      "winbond"
+    ]
+  },
+  "nor": {
+    "part": "MX29GL128FHXFI-90G",
+    "ref": "MAIN IC10",
+    "service_programmed_part": "DYW1966 (version-dependent)",
+    "size_bytes": 16777216,
+    "base": 0,
+    "bus_width_bits": 16,
+    "sector_count": 128,
+    "sector_bytes": 131072,
+    "write_buffer_bytes": 64,
+    "page_read_bytes": 16,
+    "access_ns": 90,
+    "ids": [
+      194,
+      8830,
+      8737,
+      8705
+    ],
+    "reset_vector": 2684354560,
+    "sources": [
+      "schematic",
+      "macronix"
+    ]
+  },
+  "dsp_cpu": {
+    "part": "D810K013DZKB456",
+    "ref": "MAIN IC301",
+    "architecture": "C674x",
+    "endianness": "little",
+    "core_hz": 451584000,
+    "rated_max_hz": 456000000,
+    "reference_hz": 22579200,
+    "sdram_clock_hz": 112896000,
+    "l2_bytes": 262144,
+    "l1_instruction_bytes": 32768,
+    "l1_data_bytes": 32768,
+    "shared_ram_bytes": 131072,
+    "boot_rom_bytes": 1048576,
+    "host_bus_width_bits": 16,
+    "host_base": 402653184,
+    "sources": [
+      "schematic",
+      "da810"
+    ]
+  },
+  "dsp_ram": {
+    "part": "M12L2561616A-5TG2S",
+    "refs": [
+      "MAIN IC302",
+      "MAIN IC303"
+    ],
+    "chips": 2,
+    "bits_per_chip": 268435456,
+    "chip_width_bits": 16,
+    "bus_width_bits": 32,
+    "technology": "SDR SDRAM",
+    "size_bytes": 67108864,
+    "base": 3221225472,
+    "chip_rated_clock_hz": 200000000,
+    "sources": [
+      "schematic",
+      "esmt"
+    ]
+  },
+  "dsp_memories": [
+    {
+      "id": "l2",
+      "base": 293601280,
+      "alias": 8388608,
+      "size_bytes": 262144
+    },
+    {
+      "id": "l1p",
+      "base": 299892736,
+      "alias": 14680064,
+      "size_bytes": 32768
+    },
+    {
+      "id": "l1d",
+      "base": 300941312,
+      "alias": 15728640,
+      "size_bytes": 32768
+    },
+    {
+      "id": "shared",
+      "base": 2147483648,
+      "size_bytes": 131072
+    }
+  ],
+  "panel_cpu": {
+    "part": "R5F364AENFA-U0",
+    "ref": "PNLB IC8003",
+    "architecture": "M16C/64A",
+    "reference_hz": 4000000,
+    "core_hz": null,
+    "rated_max_hz": 25000000,
+    "ram_bytes": 20480,
+    "ram_base": 1024,
+    "program_rom1_bytes": 262144,
+    "program_rom2_bytes": 16384,
+    "data_flash_bytes": 8192,
+    "address_space_bytes": 1048576,
+    "programmable_ranges": [
+      [
+        786432,
+        1048576
+      ],
+      [
+        65536,
+        81920
+      ],
+      [
+        57344,
+        65536
+      ]
+    ],
+    "executed_by_emulator": false,
+    "stock_image_sha256": "e193c727fa7e6f609d2a09c5d166f70ac8032a8d5e0cbf25db4938cfe09e9268",
+    "sources": [
+      "schematic",
+      "panel"
+    ]
+  },
+  "display": {
+    "lcd_part": "CWX4352",
+    "touch_part": "DSX1128",
+    "diagonal_inches": 7,
+    "width": 800,
+    "height": 480,
+    "board_bus_width_bits": 24,
+    "stock_framebuffer_format": "RGB565",
+    "pixel_clock_hz": [
+      100000000,
+      3
+    ],
+    "refresh_hz": null,
+    "emulator_refresh_hz": 60,
+    "sources": [
+      "schematic",
+      "product"
+    ]
+  },
+  "audio": {
+    "dac_part": "AK4452VN",
+    "ref": "MAIN IC702",
+    "channels": 2,
+    "dac_bits": 32,
+    "board_mclk_hz": 22579200,
+    "stock_output_hz": 44100,
+    "maximum_supported_file_hz": 48000,
+    "maximum_supported_file_bits": 24,
+    "outputs": [
+      "stereo RCA analogue",
+      "coaxial S/PDIF"
+    ],
+    "digital_output_driver": "NLV74VHCU04DT (IC706)",
+    "analogue_amp": "NJM4580MD (IC705)",
+    "sources": [
+      "schematic",
+      "product",
+      "akm"
+    ]
+  },
+  "interfaces": {
+    "usb_host_ports_external": 1,
+    "usb_device_ports_external": 1,
+    "usb_hub_part": "USB2512B-AEZG-TR (IC904)",
+    "usb_ether_part": "RTL8152B-VB-CG (IC902)",
+    "ether_switch_part": "RTL8304E-CG (IC905)",
+    "ethernet_max_mbit_s": 100,
+    "usb_max_mbit_s": 480,
+    "rmii_reference_hz": 50000000,
+    "usb_reference_hz": 48000000,
+    "usb_hub_reference_hz": 24000000,
+    "ether_crystal_hz": 25000000,
+    "apple_auth_part": "H337S3959 (IC3)",
+    "usb_power_switch_part": "TPS2557DRB (IC903)",
+    "sources": [
+      "schematic",
+      "microchip"
+    ]
+  },
+  "power": {
+    "main_core_v": 1.3,
+    "main_ddr_v": 1.8,
+    "logic_v": 3.3,
+    "dsp_core_v": 1.3,
+    "dsp_io_v": 3.3,
+    "reset_supervisor": "PST8430N (IC4)",
+    "clock_generator": "AK8125AV (IC1)",
+    "lcd_backlight_driver": "BD81A04EFV-M (IC1103)",
+    "power_supply": "DWR1548",
+    "power_w": 30,
+    "operating_temperature_c": [
+      5,
+      35
+    ],
+    "standby_w": 0.4,
+    "sources": [
+      "schematic",
+      "service"
+    ]
+  },
+  "sources": {
+    "schematic": {
+      "title": "Pioneer RRV4661, August 2016",
+      "path": "resources/xdj1000mk2-service-schematic.pdf",
+      "url": "https://www.manualslib.com/manual/3042372/Pioneer-Dj-Xdj-1000mk2.html",
+      "locators": "MAIN 1/7-7/7; LCDB; PNLB; WAVEFORMS; PCB parts list"
+    },
+    "service": {
+      "title": "Pioneer RRV4660, August 2016",
+      "url": "https://www.scribd.com/document/845803158/Pioneer-XDJ-1000MKII-RRV4660",
+      "locators": "5.1 power-on sequence; 6.2 device table"
+    },
+    "sh7724": {
+      "title": "Renesas SH7724 hardware manual R01UH0174JJ0200",
+      "path": "resources/sh7724-hardware-manual-ja.pdf",
+      "url": "https://www.renesas.com/ja/document/mat/sh7724-users-manual-hardware",
+      "locators": "chapters 1, 7-13, 17.4 table17.2, 19, 39, 41"
+    },
+    "winbond": {
+      "title": "Winbond 2018 product selection guide",
+      "url": "https://www.winbond.com/export/sites/winbond/product-selection-guide/file/180117-2018-PSG.pdf",
+      "locators": "DDR2, W971GG6SB 64M x16"
+    },
+    "macronix": {
+      "title": "Macronix MX29GL128F datasheet v1.5",
+      "url": "https://www.macronix.com/Lists/Datasheet/Attachments/8532/MX29GL128F%2C%203V%2C%20128Mb%2C%20v1.5.pdf",
+      "locators": "features, ordering, autoselect IDs"
+    },
+    "esmt": {
+      "title": "ESMT M12L2561616A (2A) Rev.1.2",
+      "url": "https://www.esmt.com.tw/upload/pdf/ESMT/datasheets/M12L2561616A%282A%29.pdf",
+      "locators": "4M x16 x4 banks; speed grade -5"
+    },
+    "da810": {
+      "title": "TI DA8xx technical reference manual SPRUH96B",
+      "path": "resources/da810-reference-manual.pdf",
+      "url": "https://www.ti.com/lit/ug/spruh96b/spruh96b.pdf",
+      "locators": "DSP subsystem; PLL; SYSCFG 10.2.1.2; EMIF; UHPI; McASP"
+    },
+    "c6747": {
+      "title": "TI C6745/C6747 datasheet SPRS377F",
+      "url": "https://www.ti.com/lit/ds/symlink/tms320c6747.pdf",
+      "locators": "3.4 Table 3-4, local/global RAM aliases"
+    },
+    "panel": {
+      "title": "Renesas M16C/64A datasheet R01DS0032EJ0200",
+      "url": "https://www.renesas.com/en/document/dst/m16c64a-group-datasheet",
+      "locators": "1.3 R5F364AENFA; 3.2 Fig.3.2 memory map"
+    },
+    "product": {
+      "title": "Pioneer XDJ-1000MK2 specifications and instructions",
+      "url": "https://www.pioneerdj.com/en/product/dj-players-turntables/xdj-1000mk2/",
+      "locators": "7-inch touch LCD; 48kHz/24-bit file support"
+    },
+    "microchip": {
+      "title": "Microchip USB2512B schematic checklist",
+      "url": "https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/SupportingCollateral/SchematicChecklistUSB2512BQFNRevA.pdf",
+      "locators": "480 Mbit/s high-speed, reset"
+    },
+    "akm": {
+      "title": "AKM AK4452 product announcement",
+      "url": "https://www.akm.com/us/en/about-us/news/2022/20220131-velvetsound/",
+      "locators": "32-bit stereo DAC capability"
+    },
+    "linux_cpu_probe": {
+      "title": "Linux SH4 cpu_probe implementation",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/master/arch/sh/kernel/cpu/sh4/probe.c",
+      "locators": "PVR masked case0x300b, PRR0x20 SH7724; CVR L1 and L2 size formulas; retrieved 2026-10-07"
+    },
+    "sh7724_en": {
+      "title": "Renesas SH7724 REJ09B0560-0100 Rev1.00 (English, NDA sections omitted)",
+      "path": "analysis/hardware-followup/sh7724-hardware-en.pdf",
+      "url": "https://media.taricorp.net/prizm/SH7724%20Hardware%20Manual.pdf",
+      "locators": "10/11: IL16KiB and RS2KiB; 17.4 clockmode table; 19 RWDT; 41 MERAM128KiB/32ICB"
+    },
+    "sh7724_en_rev2": {
+      "title": "Renesas SH7724 User Manual Hardware R01UH0174EJ0200 Rev2 Jan18 2013",
+      "url": "https://www.renesas.com/en/document/mat/sh7724-users-manual-hardware",
+      "local": "analysis/hardware-tpu-performance-20261008/sh7724-rev2-en.pdf",
+      "sections": "17 clocks and 21 TPU"
+    }
+  },
+  "components": [
+    {
+      "id": "main_cpu",
+      "sources": [
+        "schematic",
+        "sh7724",
+        "linux_cpu_probe"
+      ],
+      "implementation": "partial",
+      "remaining": "Shared QEMU SH-4A engine with SH7724 descriptor and canonical ID/cache readback; exact board stepping, complete exceptions/MMU/cache effects and CPU cycle timing lack device comparison"
+    },
+    {
+      "id": "main_ram",
+      "sources": [
+        "schematic",
+        "winbond"
+      ],
+      "implementation": "bounded",
+      "remaining": "capacity/map enforced; DDR initialization, refresh, bus contention and access latency unmodeled"
+    },
+    {
+      "id": "main_caches_mmu",
+      "sources": [
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "cache coherency, cache-as-RAM, full MMU/PMB permissions and DMA visibility unqualified"
+    },
+    {
+      "id": "nor",
+      "sources": [
+        "schematic",
+        "macronix"
+      ],
+      "implementation": "bounded",
+      "remaining": "AMD CFI command model; exact busy timings, write-buffer/protection/security-sector behavior unqualified"
+    },
+    {
+      "id": "main_clock_reset",
+      "sources": [
+        "schematic",
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "fixed TMU clock; CPG/DDR/BSC register readback does not implement clock/reset/refresh effects"
+    },
+    {
+      "id": "main_intc",
+      "sources": [
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "INTC-B/C and full priority arbitration unmodeled"
+    },
+    {
+      "id": "main_dma",
+      "sources": [
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "USB/HPI paths modeled; other channels, error paths, requests and bus timings incomplete"
+    },
+    {
+      "id": "main_timers",
+      "sources": [
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "TMU, RWDT protected counting/reset requests and TPU internal count/compare/buffering represented; RWDT sync/reset chain, CMT, TPU interrupts/pins/sub-clock flag timing and CPG/standby coupling unqualified"
+    },
+    {
+      "id": "main_serial",
+      "sources": [
+        "schematic",
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "SCIF/panel peer; full baud timing, FIFO errors and every serial port unqualified"
+    },
+    {
+      "id": "main_gpio_pinmux",
+      "sources": [
+        "schematic",
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "selected board wires; complete pin routing, electrical sequencing and interrupts unqualified"
+    },
+    {
+      "id": "main_i2c",
+      "sources": [
+        "schematic",
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "I2C line/register model; exact external slave behavior and bus timing incomplete"
+    },
+    {
+      "id": "dsp_cpu",
+      "sources": [
+        "schematic",
+        "da810"
+      ],
+      "implementation": "partial",
+      "remaining": "C674x instruction profile executed; no physical DSP trace or full exception/cache timing comparison"
+    },
+    {
+      "id": "dsp_ram",
+      "sources": [
+        "schematic",
+        "esmt",
+        "c6747"
+      ],
+      "implementation": "bounded",
+      "remaining": "64 MiB and local/global internal-RAM aliases enforced; EMIF geometry, refresh and latency incomplete"
+    },
+    {
+      "id": "dsp_boot_rom",
+      "sources": [
+        "c6747",
+        "da810"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "1 MiB factory boot ROM unavailable; MAIN/UHPI boot protocol substitutes for ROM execution"
+    },
+    {
+      "id": "dsp_cache_idma",
+      "sources": [
+        "da810",
+        "c6747"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "L1/L2 partitioning, coherency, protection, IDMA and bandwidth controls"
+    },
+    {
+      "id": "dsp_pll",
+      "sources": [
+        "schematic",
+        "da810"
+      ],
+      "implementation": "partial",
+      "remaining": "guest-programmed ratios modeled; analog lock time, phase, maximum-rate violations and power domains incomplete"
+    },
+    {
+      "id": "dsp_syscfg",
+      "sources": [
+        "da810"
+      ],
+      "implementation": "partial",
+      "remaining": "KICK order/relocking modeled; pinmux effects, privileges, protection interrupts and board silicon revision remain unqualified"
+    },
+    {
+      "id": "dsp_psc",
+      "sources": [
+        "da810"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "power/sleep/reset state controllers"
+    },
+    {
+      "id": "dsp_intc",
+      "sources": [
+        "da810"
+      ],
+      "implementation": "partial",
+      "remaining": "event mux/latching implemented; complete chip event sources and priorities unqualified"
+    },
+    {
+      "id": "dsp_edma",
+      "sources": [
+        "da810"
+      ],
+      "implementation": "partial",
+      "remaining": "audio EDMA modeled; transfer-controller arbitration/errors and all requests incomplete"
+    },
+    {
+      "id": "dsp_timers_gpio",
+      "sources": [
+        "schematic",
+        "da810"
+      ],
+      "implementation": "partial",
+      "remaining": "two timers and host-command GPIO; watchdog/external pins/privileges incomplete"
+    },
+    {
+      "id": "uhpi",
+      "sources": [
+        "schematic",
+        "da810"
+      ],
+      "implementation": "partial",
+      "remaining": "16-bit host port and handshake modeled; exact wait-state/arbitration timing unqualified"
+    },
+    {
+      "id": "mcasp_dac",
+      "sources": [
+        "schematic",
+        "da810",
+        "akm"
+      ],
+      "implementation": "partial",
+      "remaining": "stereo 44.1kHz digital samples serialized; DAC configuration/mute/filter/analog behavior and S/PDIF unmodeled"
+    },
+    {
+      "id": "dsp_other_peripherals",
+      "sources": [
+        "da810"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "SPI, UART, I2C, RTC, MMC, PRUSS, eCAP/eHRPWM/eQEP, DSP LCDC and unused bus masters"
+    },
+    {
+      "id": "panel_cpu",
+      "sources": [
+        "schematic",
+        "panel"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "M16C firmware not executed; serial peer only; custom PANEL changes cannot be qualified"
+    },
+    {
+      "id": "panel_controls",
+      "sources": [
+        "schematic",
+        "panel"
+      ],
+      "implementation": "partial",
+      "remaining": "keys, pitch, rotary, quadrature jog, touch and LEDs represented in peer; ADC calibration/debounce/physical scan timing unqualified"
+    },
+    {
+      "id": "panel_jog_display",
+      "sources": [
+        "schematic"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "JFLB VFD driver and jog display electronics"
+    },
+    {
+      "id": "lcdc",
+      "sources": [
+        "schematic",
+        "sh7724",
+        "product"
+      ],
+      "implementation": "partial",
+      "remaining": "800x480 surface and RGB bus represented; physical raster timings/porches/refresh and backlight unqualified"
+    },
+    {
+      "id": "m2dg",
+      "sources": [
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "firmware graphics commands modeled; unsupported commands and raster/bus timings incomplete"
+    },
+    {
+      "id": "other_sh7724_ip",
+      "sources": [
+        "sh7724"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "BEU, VEU, VPU, SPU/SSI, ATAPI, MSIOF, SDHI/MMC, TSIF, TPU external pins and debug/UBC; chip availability is not proof of board use"
+    },
+    {
+      "id": "usb",
+      "sources": [
+        "schematic",
+        "microchip"
+      ],
+      "implementation": "partial",
+      "remaining": "guest mass storage and device controller modeled; physical hub topology, hotplug/error timing and power budget incomplete"
+    },
+    {
+      "id": "ethernet",
+      "sources": [
+        "schematic",
+        "sh7724"
+      ],
+      "implementation": "partial",
+      "remaining": "MAC model present; RTL8304E switch/PHY and RTL8152B device semantics and Pro DJ Link network acceptance incomplete"
+    },
+    {
+      "id": "apple_auth",
+      "sources": [
+        "schematic"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "H337S3959 authentication protocol and secret state unavailable"
+    },
+    {
+      "id": "power_reset",
+      "sources": [
+        "schematic"
+      ],
+      "implementation": "unmodeled",
+      "remaining": "rail sequencing, reset-supervisor delays, brownout, USB overcurrent, thermal and EMI behavior"
+    },
+    {
+      "id": "external_storage",
+      "sources": [
+        "schematic",
+        "product"
+      ],
+      "implementation": "partial",
+      "remaining": "user USB capacity/media dependent; no fixed internal music-storage capacity; filesystem and media fault coverage incomplete"
+    },
+    {
+      "id": "mechanical_analogue",
+      "sources": [
+        "service"
+      ],
+      "implementation": "not_applicable",
+      "remaining": "chassis 305x382.5x110 mm, 3.7 kg; electrical/analog performance requires physical measurement"
+    },
+    {
+      "id": "main_il_ram",
+      "sources": [
+        "sh7724",
+        "sh7724_en"
+      ],
+      "implementation": "partial",
+      "remaining": "16KiB mapped; RAMCR user-mode/TLB protection, instruction coherence, bus arbitration and wait cycles unqualified"
+    },
+    {
+      "id": "main_rs_ram",
+      "sources": [
+        "sh7724",
+        "sh7724_en"
+      ],
+      "implementation": "partial",
+      "remaining": "2KiB mapped; R-standby retention/return and power/reset sequencing unqualified"
+    },
+    {
+      "id": "main_media_ram",
+      "sources": [
+        "sh7724",
+        "sh7724_en"
+      ],
+      "implementation": "partial",
+      "remaining": "128KiB direct data window mapped; ICB conversion/prefetch/writeback/interrupts, PASCR gating and mirror selection unmodeled"
+    }
+  ],
+  "rwdt": {
+    "base": 2756837376,
+    "alias": 72482816,
+    "counter_bits": 8,
+    "power_on_control": 135,
+    "clock_source": "EXTAL / 1024 in board-strapped clock mode 1",
+    "clock_hz": [
+      100000000,
+      3072
+    ],
+    "dividers": [
+      1,
+      4,
+      16,
+      32,
+      64,
+      128,
+      1024,
+      4096
+    ],
+    "write_sync_interval": "unverified; counter writes remain coverage gaps",
+    "reset_chain": "partial QEMU reset; complete device/rail sequence unverified",
+    "sources": [
+      "schematic",
+      "sh7724",
+      "sh7724_en"
+    ],
+    "divider_phase": "unverified; phase restart on divider change is a model convention and records a gap"
+  },
+  "main_onchip_memories": [
+    {
+      "id": "il",
+      "base": 3844079616,
+      "size_bytes": 16384,
+      "page_bytes": 4096,
+      "pages": 4,
+      "sources": [
+        "sh7724",
+        "sh7724_en"
+      ]
+    },
+    {
+      "id": "rs",
+      "base": 4253024256,
+      "size_bytes": 2048,
+      "retained_in": "R-standby",
+      "sources": [
+        "sh7724",
+        "sh7724_en"
+      ]
+    },
+    {
+      "id": "meram",
+      "base": 3892838400,
+      "size_bytes": 131072,
+      "role": "direct access data window; separate from controller register window",
+      "sources": [
+        "sh7724",
+        "sh7724_en"
+      ]
+    }
+  ],
+  "media_ram": {
+    "size_bytes": 131072,
+    "icb_count": 32,
+    "register_base": 3892314112,
+    "sources": [
+      "sh7724",
+      "sh7724_en"
+    ],
+    "implementation": "partial",
+    "remaining": "128KiB direct data window mapped; ICB conversion/prefetch/writeback/interrupts, PASCR gating and mirror selection unmodeled",
+    "direct_access_base": 3892838400
+  },
+  "tpu": {
+    "channels": 4,
+    "counter_bits": 16,
+    "base": 2764636160,
+    "alias": 80281600,
+    "clock": "Bphi",
+    "internal_dividers": [
+      1,
+      4,
+      16,
+      64
+    ],
+    "sources": [
+      "sh7724",
+      "sh7724_en_rev2"
+    ],
+    "implementation": "partial",
+    "remaining": "Counter/register/buffer behavior represented; clock-phase/CPG module-standby coupling, sub-clock flag timing, interrupt delivery and pin/PFC/backlight electrical output unqualified"
+  }
+}

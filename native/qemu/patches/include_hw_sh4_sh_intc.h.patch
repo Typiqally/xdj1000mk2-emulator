@@ -1,0 +1,16 @@
+diff --git a/include/hw/sh4/sh_intc.h b/include/hw/sh4/sh_intc.h
+--- a/include/hw/sh4/sh_intc.h
++++ b/include/hw/sh4/sh_intc.h
+@@ -55,9 +55,12 @@
+     struct intc_prio_reg *prio_regs;
+     int nr_prio_regs;
+     int pending; /* number of interrupt sources that has pending set */
++    bool mask_reads_inverted; /* SH-4A IMR reads masked, not enabled, bits */
+ };
+ 
+ int sh_intc_get_pending_vector(struct intc_desc *desc, int imask);
++int sh_intc_vector_priority(struct intc_desc *desc, int vect);
++void sh_intc_reset_masks(struct intc_desc *desc);
+ 
+ void sh_intc_toggle_source(struct intc_source *source,
+                            int enable_adj, int assert_adj);

@@ -1,0 +1,50 @@
+name: Rust backend
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  rust:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check source distribution
+        run: python3 scripts/check_publication.py check
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --locked --release
+      - name: Native component dependencies
+        if: runner.os == 'macOS'
+        run: brew install pkg-config glib
+      - name: Native QEMU and DSP component regressions
+        if: runner.os == 'macOS'
+        run: python3 -m unittest discover -s tests/native -v
+  desktop:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked -p xdj-ui --all-targets -- -D warnings
+      - run: cargo test --locked -p xdj-ui
+      - run: cargo build --locked --release -p xdj-ui --bin xdj-ui
