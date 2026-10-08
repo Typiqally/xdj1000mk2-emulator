@@ -14,8 +14,11 @@ source changes present at extraction. The manifest in
 The baseline revision alone does not identify those working changes.
 
 Original Rust backend, desktop UI and catalog code under `src/` and `crates/`
-are distributed under MIT; see LICENSE-MIT. Original README concept artwork is
-also MIT; its built-in imagegen prompt is in `docs/assets/README.md`.
+are distributed under MIT; see LICENSE-MIT. README visuals are actual emulator
+UI captures; their provenance is in `docs/assets/README.md`. Original host UI
+material is MIT. Vendor firmware-rendered graphics, trademarks and other
+third-party content visible in the captures retain their respective ownership
+and are not relicensed by LICENSE-MIT.
 Native components retain their existing per-file licenses, including GPL;
 the GPL-2.0 text in LICENSE is preserved. This does not relicense QEMU, DSP,
 binutils-derived tables or other third-party source. The QEMU archive downloaded

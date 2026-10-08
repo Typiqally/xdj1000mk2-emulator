@@ -16,7 +16,9 @@ PUBLIC_FILES = {
 }
 PUBLIC_ARTWORK = {
     'docs/assets/readme-hero.png':
-        'ca3ac216d993022325e551b0cd8c11a078fe01f5a6e2c25a7a2a555ca6165f4e',
+        'f3ded54cb7fb9b1372c165ea0e52b55d5b4a2383c5d1b859d3ba4848b156a248',
+    'docs/assets/player-view.png':
+        '39b2ffb94b1e16d3e72dde1d30a0eee9b4de5f0f12080450b3f5d03a0b82e6eb',
 }
 SOURCE_SUFFIXES = {'.rs', '.c', '.h', '.patch', '.s', '.md', '.sh', '.py',
                    '.json', '.toml', '.yml', '.yaml', '.mk', '.build', '.lock'}

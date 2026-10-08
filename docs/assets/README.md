@@ -1,11 +1,28 @@
-# README artwork
+# README visuals
 
-`readme-hero.png` is original concept artwork generated with the built-in imagegen tool for the XDJ-1000MK2 emulator. It is distributed under MIT, and is not a firmware screenshot or an exact hardware cutaway. The composition is inspired by [cdj3k-emu](https://github.com/nsaintot/cdj3k-emu); no copied reference image is bundled.
+These are unchanged PNG captures from the real Rust/egui/wgpu emulator UI,
+recorded on 2026-10-08. No AI-generated deck, screen, waveform or control is used.
 
-SHA-256: `ca3ac216d993022325e551b0cd8c11a078fe01f5a6e2c25a7a2a555ca6165f4e`.
+| Asset | Actual view | Resolution | SHA-256 |
+| --- | --- | --- | --- |
+| `readme-hero.png` | Firmware view, including the LCD, panel controls and inspector | 2560 × 1596 | `f3ded54cb7fb9b1372c165ea0e52b55d5b4a2383c5d1b859d3ba4848b156a248` |
+| `player-view.png` | Player view, including the LCD and deck controls | 2130 × 2820 | `39b2ffb94b1e16d3e72dde1d30a0eee9b4de5f0f12080450b3f5d03a0b82e6eb` |
 
-## Final edit prompt
+The captures come from the same disposable boot session. Original XDJ-1000MK2
+firmware 1.45 is browsing `TEST0001.WAV`, a synthetic test tone. The screen reads
+“Not Loaded”; these images show boot and UI presentation, not playback evidence.
+Audio output was disabled and host monitoring muted. No private music, personal
+settings, absolute local paths, firmware files or diagnostic sidecars are bundled.
 
-```text
-Edit this original project README hero for the emulator repository. Preserve the full dark charcoal background, subtle grid and arcs, isometric exploded XDJ-1000MK2 deck illustration, hardware details, screen waveforms, lighting, colors, layout and 2:1 aspect ratio. Change only the left-side typography: keep the first large line exactly 'XDJ-1000MK2'; replace 'Custom firmware' with the bold off-white word 'Emulator'; replace the gray subtitle with exactly 'Native firmware. Rust desktop.' Keep the small bottom-left text exactly 'EXPERIMENTAL RESEARCH'. Match the existing typographic style and margins. No logos or new objects. This is original concept artwork, not a firmware screenshot. Make text clear at GitHub README width.
-```
+Firmware SHA-256:
+`6fd2a5002b297b86fb8a5931d3debf1b607ff6abaf9d49cd737d3a530002dbcd`.
+
+The local diagnostic scenario captured Firmware view at 20 seconds, switched to
+Player view at 21 seconds and captured it at 22 seconds. The app's screenshot
+handler saved the complete rendered window. The committed images are byte-for-byte
+copies of those captures; README sizing only changes their display dimensions.
+
+Original host UI material uses MIT. Firmware-rendered graphics, names and marks
+remain the property of their respective owners; see [NOTICE](../../NOTICE.md).
+The images do not establish hardware fidelity, continuous audio or compatibility
+with a later engine build. Users must supply their own firmware to run the app.

@@ -1,6 +1,8 @@
-![XDJ-1000MK2 Emulator — dark isometric deck concept artwork](docs/assets/readme-hero.png)
-
 # XDJ-1000MK2 Emulator
+
+![Actual Rust emulator: Firmware view with the native firmware LCD, controls and inspector](docs/assets/readme-hero.png)
+
+*Real emulator capture: firmware 1.45 browsing a synthetic test file. [Screenshot provenance](docs/assets/README.md).*
 
 A native macOS research emulator with a Rust host backend, QEMU SH-4A execution,
 a C674x DSP model in C, and a Rust/egui/wgpu desktop UI prototype. Swift emulator sources and comparison tests have been removed; screen OCR calls macOS Vision from Rust. The selected firmware
@@ -25,6 +27,12 @@ The [publication checks](docs/publication-validation.md) record 85 passing Rust
 tests and outstanding native-suite failures in the current development source.
 
 ## Rust desktop UI
+
+<p align="center">
+  <a href="docs/assets/player-view.png"><img src="docs/assets/player-view.png" width="480" alt="Actual Rust emulator in Player view, showing the native LCD, jog wheel and panel controls"></a>
+</p>
+
+*Player view from the same emulator session. Click the image for the full-resolution capture.*
 
 Install Rust 1.95 or later. The UI has no Swift/Xcode requirement. Building the
 existing QEMU/C engine on macOS still needs its native development toolchain.
@@ -156,7 +164,7 @@ licenses and the [GPL license text](LICENSE); see [NOTICE](NOTICE.md).
 [QEMU documents its licensing here](https://www.qemu.org/docs/master/about/license.html).
 
 This repository was initialized independently from the firmware-modification
-project; its Git history contains emulator source and synthetic tests only.
+project; its Git history contains emulator source, synthetic tests and README visuals.
 For GitHub publishing, use [docs/PUBLISHING.md](docs/PUBLISHING.md); it includes
 current source changes and artwork while excluding generated caches and state.
 
