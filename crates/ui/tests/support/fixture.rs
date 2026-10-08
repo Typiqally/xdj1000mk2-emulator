@@ -108,8 +108,10 @@ fn main() -> Result<()> {
             .resize_exact(800, 480, image::imageops::FilterType::Nearest)
             .to_rgba8();
         for (out, input) in pixels
-            .chunks_exact_mut(4)
-            .zip(image.as_raw().chunks_exact(4))
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(image.as_raw().as_chunks::<4>().0)
         {
             out.copy_from_slice(&[input[2], input[1], input[0], 0]);
         }
