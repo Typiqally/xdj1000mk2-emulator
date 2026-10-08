@@ -285,7 +285,11 @@ fn reference_deck_retains_cap_geometry_and_external_legends() {
         "Touch / Release",
         "Panel lamps",
         "Firmware",
-        "Open firmware to start · ⌘F",
+        if cfg!(target_os = "macos") {
+            "Open firmware to start · ⌘F"
+        } else {
+            "Open firmware to start · Ctrl+F"
+        },
     ] {
         assert!(
             labels.iter().any(|s| s == text),
