@@ -335,11 +335,12 @@ mod tests {
         let file = dir.path().join("recent.json");
         fs::write(&file, b"corrupt").unwrap();
         assert!(Recent::load(file.clone()).paths.is_empty());
+        let absolute = dir.path().canonicalize().unwrap().join("absolute.upd");
         fs::write(
             &file,
-            json!(["relative.upd", "/absolute.upd", "/absolute.upd"]).to_string(),
+            json!(["relative.upd", absolute, absolute]).to_string(),
         )
         .unwrap();
-        assert_eq!(Recent::load(file).paths, [PathBuf::from("/absolute.upd")]);
+        assert_eq!(Recent::load(file).paths, [absolute]);
     }
 }
