@@ -252,7 +252,9 @@ fn reference_deck_retains_cap_geometry_and_external_legends() {
     let mut app = DeckApp::offline(Options::default());
     let mut output = ctx.run_ui(
         egui::RawInput {
-            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1280., 798.))),
+            // Leave room for Linux/Windows' in-window menu as well as the
+            // header and footer, so these assertions exercise 1x geometry.
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1280., 900.))),
             ..Default::default()
         },
         |ui| app.show(ui),
