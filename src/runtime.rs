@@ -24,6 +24,7 @@ pub struct Options {
     pub mode: String,
     pub lag_cap_ms: u64,
     pub capture: Option<PathBuf>,
+    pub link: Option<crate::link::Link>,
     pub extra: Vec<String>,
 }
 impl Options {
@@ -38,6 +39,7 @@ impl Options {
             mode: "adaptive".into(),
             lag_cap_ms: 300,
             capture: None,
+            link: None,
             extra: Vec::new(),
         }
     }
@@ -97,6 +99,9 @@ impl Runtime {
                 "none",
             ])
             .args(&options.extra);
+        if let Some(link) = &options.link {
+            link.configure(&mut command, &state.directory);
+        }
         if options.muted {
             command.arg("-S");
         }

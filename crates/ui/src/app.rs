@@ -435,6 +435,17 @@ impl DeckApp {
         }
     }
     fn command(&mut self, value: Value, ctx: &egui::Context) {
+        // Scheduled native inputs belong to the backend's control lifetime.
+        // Keeping them in the physical UI input set would cancel every held
+        // button/touch as soon as this window loses keyboard focus.
+        if value["after"].as_f64().is_some()
+            && matches!(value["action"].as_str(), Some("button" | "touch"))
+        {
+            if self.player.ready {
+                self.emit(Some(value));
+            }
+            return;
+        }
         match value["action"].as_str().unwrap_or("") {
             #[cfg(target_os = "macos")]
             "native-menu" if self.options.diagnostics.is_some() => {
@@ -650,13 +661,13 @@ impl DeckApp {
             let image = egui::ColorImage::from_rgba_premultiplied(frame.patch.size, &frame.rgba);
             if let Some(texture) = &mut self.texture {
                 if texture.size() == frame.size {
-                    texture.set_partial(frame.patch.origin, image, egui::TextureOptions::NEAREST);
+                    texture.set_partial(frame.patch.origin, image, egui::TextureOptions::LINEAR);
                 } else {
-                    texture.set(image, egui::TextureOptions::NEAREST);
+                    texture.set(image, egui::TextureOptions::LINEAR);
                 }
             } else {
                 self.texture =
-                    Some(ctx.load_texture("firmware LCD", image, egui::TextureOptions::NEAREST));
+                    Some(ctx.load_texture("firmware LCD", image, egui::TextureOptions::LINEAR));
             }
             if frame.patch.origin == [0, 0] && frame.patch.size == frame.size {
                 self.framebuffer = Some((frame.size, frame.rgba));
@@ -1109,6 +1120,25 @@ impl DeckApp {
                         .shortcut("CmdOrCtrl+R")
                         .enabled(has_firmware),
                     E::item("Stop Player", json!({"action":"stop"})).enabled(self.player.ready),
+                    E::group(
+                        "Virtual Link Cable",
+                        vec![
+                            E::item("Unplug Cable", json!({"action":"link","connected":false}))
+                                .enabled(
+                                    self.player.ready
+                                        && self.options.backend_args.iter().any(|arg| {
+                                            arg == "--link-listen" || arg == "--link-connect"
+                                        }),
+                                ),
+                            E::item("Plug Cable", json!({"action":"link","connected":true}))
+                                .enabled(
+                                    self.player.ready
+                                        && self.options.backend_args.iter().any(|arg| {
+                                            arg == "--link-listen" || arg == "--link-connect"
+                                        }),
+                                ),
+                        ],
+                    ),
                     E::separator(),
                     E::item("Show Live Logs", json!({"action":"show-logs"}))
                         .shortcut("CmdOrCtrl+L"),
@@ -2010,11 +2040,22 @@ mod tests {
             });
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| app.poll(ui.ctx()));
             let texture = app.texture.as_ref().unwrap().id();
-            let deltas = &output.textures_delta.set[&texture];
+            let delta = output.textures_delta.set[&texture].last().unwrap().clone();
+            output.textures_delta.clear();
             assert_eq!(
-                deltas.last().unwrap().pos.is_some(),
+                delta.pos.is_some(),
                 partial,
                 "Reuse allocation when frame dimensions match"
+            );
+            assert_eq!(
+                delta.options.magnification,
+                egui::TextureFilter::Linear,
+                "Enlarged LCD text must interpolate instead of duplicating jagged pixels"
+            );
+            assert_eq!(app.framebuffer.as_ref().unwrap().0, size);
+            assert_eq!(
+                app.framebuffer.as_ref().unwrap().1,
+                vec![255; size[0] * size[1] * 4]
             );
             output.textures_delta.clear();
         }
@@ -2040,6 +2081,35 @@ mod tests {
         );
         app.command(json!({"action":"touch","x":30,"y":40,"down":false}), &ctx);
         assert_eq!(app.take_commands()[0]["down"], false);
+    }
+    #[test]
+    fn scripted_controls_survive_focus_loss_until_explicit_release() {
+        for command in [
+            json!({"after":0,"action":"button","name":"load","down":true}),
+            json!({"after":0,"action":"touch","x":30,"y":40,"down":true}),
+        ] {
+            let ctx = egui::Context::default();
+            let mut app = DeckApp::offline(Options::default());
+            app.player.event(&json!({"event":"running"}));
+            app.command(command.clone(), &ctx);
+            assert_eq!(app.take_commands().len(), 1);
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    focused: false,
+                    ..Default::default()
+                },
+                |ui| app.keyboard(ui.ctx()),
+            );
+            output.textures_delta.clear();
+            assert!(
+                app.take_commands().is_empty(),
+                "Focus loss cancelled a scripted control"
+            );
+            let mut up = command;
+            up["down"] = json!(false);
+            app.command(up, &ctx);
+            assert_eq!(app.take_commands()[0]["down"], false);
+        }
     }
     #[test]
     fn diagnostic_pitch_updates_the_visible_fader() {

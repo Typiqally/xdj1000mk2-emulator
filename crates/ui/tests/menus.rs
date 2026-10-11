@@ -124,3 +124,39 @@ fn explicit_backend_survives_a_later_root_argument() {
         std::path::PathBuf::from("selected-backend")
     );
 }
+#[test]
+fn virtual_link_cable_menu_requires_an_endpoint_and_dispatches_device_events() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = DeckApp::offline(Options {
+        root: dir.path().into(),
+        backend_args: vec!["--link-listen".into(), "9000".into()],
+        ..Options::default()
+    });
+    app.player.ready = true;
+    let menus = app.menu_entries();
+    let cable = menus[1]
+        .children
+        .iter()
+        .find(|e| e.label == "Virtual Link Cable")
+        .unwrap();
+    assert!(cable.children.iter().all(|e| e.enabled));
+    let ctx = egui::Context::default();
+    for entry in &cable.children {
+        app.activate_menu(entry.action.clone(), &ctx);
+    }
+    let commands = app.take_commands();
+    assert!(commands.contains(&json!({"action":"link","connected":false})));
+    assert!(commands.contains(&json!({"action":"link","connected":true})));
+    app.options.backend_args.clear();
+    let menus = app.menu_entries();
+    assert!(
+        menus[1]
+            .children
+            .iter()
+            .find(|e| e.label == "Virtual Link Cable")
+            .unwrap()
+            .children
+            .iter()
+            .all(|e| !e.enabled)
+    );
+}

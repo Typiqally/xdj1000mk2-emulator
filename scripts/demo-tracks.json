@@ -1,0 +1,35 @@
+[
+  {
+    "title": "Hard Dungeon",
+    "artist": "MintoDog",
+    "source": "https://opengameart.org/content/hard-dungeon",
+    "download": "https://opengameart.org/sites/default/files/hard_dungeon_bpm140.mp3",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "bpm": 140,
+    "file": "hard_dungeon_bpm140.mp3",
+    "sha256": "440868000946f5f8b02c203b25523af07a0bba3bf1ab3426b2b096051667acdc"
+  },
+  {
+    "title": "Hot Roadway",
+    "artist": "MintoDog",
+    "source": "https://opengameart.org/content/hot-roadway",
+    "download": "https://opengameart.org/sites/default/files/hot_roadway_bpm160.flac",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "bpm": 160,
+    "file": "hot_roadway_bpm160.flac",
+    "sha256": "0c8b5b2396d352c3d9bf239fa55582f3ed526c80ed089cfb6ef13d81fc5dcb27"
+  },
+  {
+    "title": "Joyfully (Loop)",
+    "artist": "MintoDog",
+    "source": "https://opengameart.org/content/joyfully",
+    "download": "https://opengameart.org/sites/default/files/joyfully_loop_bpm170.mp3",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "bpm": 170,
+    "file": "joyfully_loop_bpm170.mp3",
+    "sha256": "2d1451ea2a34ea6a71f5c5e95e193c63b5fa6eb88badae679dbb55b21a98f54e"
+  }
+]

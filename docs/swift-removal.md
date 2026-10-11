@@ -24,7 +24,7 @@ Legacy cleanup removed 16,054 regenerable artifacts, freeing 14,841,507,840
 allocated bytes (about 13.8 GiB). These were obsolete NOR/panel state and USB
 overlays, compiled DSP/build/bytecode caches and Swift artifacts. Active file
 paths and state leases were checked before deletion. Reports, JSON metadata,
-logs, screenshots, audio and RAM/DSP captures, firmware and MASSTECH media were
+logs, screenshots, audio and RAM/DSP captures, firmware and personal media were
 preserved. Current replacement state and engines and other sessions were excluded.
 The ignored receipt and per-file hash ledger are
 `output/legacy-cleanup-20261008.json` and `.jsonl`.

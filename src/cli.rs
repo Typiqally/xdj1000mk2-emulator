@@ -29,6 +29,7 @@ impl Args {
                     "write-header",
                     "check-header",
                     "force",
+                    "link-trace",
                 ]
                 .contains(&name)
                 {
@@ -56,6 +57,10 @@ impl Args {
                     "boot-seconds",
                     "compile-mode",
                     "audio-root",
+                    "pcm-capture",
+                    "link-listen",
+                    "link-connect",
+                    "link-mac",
                 ]
                 .contains(&name)
                 {
@@ -109,6 +114,7 @@ impl Args {
 }
 pub fn options(args: &Args, root: &Path) -> Result<crate::runtime::Options> {
     let mut options = crate::runtime::Options::at(root);
+    options.link = crate::link::Link::from_args(args)?;
     let selection = root.join("output/engine.json");
     if selection.exists() && (args.value("engine").is_none() || args.value("qemu-data").is_none()) {
         let selected = crate::util::read_json(&selection)?;
@@ -147,5 +153,14 @@ pub fn options(args: &Args, root: &Path) -> Result<crate::runtime::Options> {
     options.muted = !args.flag("unmute-audio") || args.path("diagnostics").is_some();
     options.lag_cap_ms = args.number("dsp-lag-cap-ms", 300)?;
     options.mode = args.value("compile-mode").unwrap_or("adaptive").into();
+    if let Some(path) = args.path("pcm-capture") {
+        let path = path
+            .canonicalize()
+            .context("PCM capture directory does not exist")?;
+        if !path.is_dir() {
+            bail!("PCM capture path must be a directory");
+        }
+        options.capture = Some(path);
+    }
     Ok(options)
 }

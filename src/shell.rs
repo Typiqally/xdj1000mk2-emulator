@@ -137,6 +137,17 @@ pub fn run(args: &Args, root: &Path) -> Result<()> {
             }
         }
     }
+    let defaults = root.join("output/desktop-defaults.json");
+    if image.is_none() && defaults.is_file() {
+        let defaults = read_json(&defaults)?;
+        if let Some(path) = defaults["usb_image"].as_str() {
+            let path = PathBuf::from(path)
+                .canonicalize()
+                .context("Default USB image is missing")?;
+            ensure!(path.is_file(), "Default USB image must be a file");
+            image = Some(path);
+        }
+    }
     if image.is_none() {
         let demo = media_root.join("demo.img");
         if !demo.exists() {
@@ -266,6 +277,16 @@ pub fn run(args: &Args, root: &Path) -> Result<()> {
                         "quit" | "stop" => {
                             active = false;
                         }
+                        "link" => {
+                            ensure!(options.link.is_some(), "Start with a Link endpoint first");
+                            let connected = command["connected"]
+                                .as_bool()
+                                .context("Missing connected boolean")?;
+                            runtime
+                                .qmp()
+                                .execute("set_link", json!({"name":"ether","up":connected}))?;
+                            emit("link", json!({"connected":connected}))?;
+                        }
                         "restart" | "diagnostic" => {
                             restart = true;
                         }
@@ -393,6 +414,17 @@ pub fn run(args: &Args, root: &Path) -> Result<()> {
                                 "memory-captured",
                                 json!({"address":address,"size":size,"path":destination}),
                             )?;
+                        }
+                        "registers" => {
+                            ensure!(
+                                args.path("diagnostics").is_some(),
+                                "Register capture requires --diagnostics"
+                            );
+                            let registers = runtime.qmp().execute(
+                                "human-monitor-command",
+                                json!({"command-line":"info registers"}),
+                            )?;
+                            emit("registers", json!({"registers":registers}))?;
                         }
                         "invalid" => bail!("{}", command["reason"]),
                         _ => bail!("Unknown shell action"),

@@ -139,6 +139,9 @@ typedef struct {
     unsigned wr_phyad;               /* ...and the PHY address it named */
     bool wr_pending;
     uint16_t phy[32];
+    bool link_up;
+    qemu_irq switch_irq;
+    bool switch_pending;
     /* Per-register access counts, indexed like reg[]. */
     uint32_t nread[CDJ_ETHER_SIZE / 4];
     uint32_t nwrite[CDJ_ETHER_SIZE / 4];
@@ -153,6 +156,7 @@ typedef struct {
     MemReentrancyGuard reentrancy_guard;
     qemu_irq irq;
     QEMUTimer *rx_retry;             /* re-offers frames held on a full ring */
+    QEMUTimer *link_poll;            /* socket backend carrier edges */
     uint32_t tx_cur;
     uint32_t rx_cur;
     uint8_t txbuf[CDJ_ETHER_MAXFRAME];
@@ -171,10 +175,14 @@ typedef struct {
  */
 #define CDJ_ETHER_PHYADS_DEFAULT "0,1,5"
 
-static bool cdj_ether_phy_present(unsigned phyad)
+static bool cdj_ether_phy_present(CdjEtherState *s, unsigned phyad)
 {
     const char *e = getenv("CDJ_ETHER_PHYADS");
     const char *p = e ? e : CDJ_ETHER_PHYADS_DEFAULT;
+
+    if (!e && s->switch_irq && phyad == 4) {
+        return true;                 /* RTL8304E switch management address */
+    }
 
     while (*p) {
         char *end;
@@ -265,8 +273,28 @@ static unsigned cdj_ether_mdio_ta(const CdjEtherState *s)
     return e ? (unsigned)strtoul(e, NULL, 0) : s->mdio_ta;
 }
 
-static uint16_t cdj_ether_phy_read(CdjEtherState *s, unsigned reg)
+/* Stock XDJ MAIN 09477d42 masks switch interrupts with PHY0/reg16 bit15,
+ * reads PHY4/reg22 to acknowledge, then enables them with bit1. The switch's
+ * separate INT output is CPU PTZ5/IRQ5 (RRV4661 MAIN 1/7, A21). */
+static void cdj_ether_switch_update_irq(CdjEtherState *s)
 {
+    if (s->switch_irq) {
+        bool enabled = (s->phy[16] & 0x8002) == 2;
+
+        qemu_set_irq(s->switch_irq, enabled && s->switch_pending);
+    }
+}
+
+static uint16_t cdj_ether_phy_read(CdjEtherState *s, unsigned phyad,
+                                 unsigned reg)
+{
+    if (s->switch_irq && phyad == 4 && reg == 22) {
+        s->switch_pending = false;
+        cdj_ether_switch_update_irq(s);
+        /* MAIN uses this read only to acknowledge the change; per-port
+         * vendor status bits remain outside this partial switch model. */
+        return 0;
+    }
     switch (reg) {
     case MII_BMSR:
         /* Link up and autoneg complete, or the driver waits forever:
@@ -276,7 +304,10 @@ static uint16_t cdj_ether_phy_read(CdjEtherState *s, unsigned reg)
         {
             const char *e = getenv("CDJ_ETHER_BMSR");
 
-            return e ? (uint16_t)strtoul(e, NULL, 0) : 0x782D;
+            uint16_t status = e ? (uint16_t)strtoul(e, NULL, 0) : 0x782D;
+
+            return s->link_up && !getenv("CDJ_ETHER_NOLINK")
+                   ? status : status & ~(uint16_t)0x0024;
         }
     case MII_ANLPAR:
         return 0x45E1;               /* link partner: 100/10, ack */
@@ -316,23 +347,22 @@ static void cdj_ether_mdio_bit(CdjEtherState *s, bool bit)
         unsigned phyad = (s->shift >> 5) & 0x1f;
         unsigned regad = s->shift & 0x1f;
 
-        if (getenv("CDJ_ETHER_DEBUG")) {
-            if (op == 0x2) {
-                info_report("ether: MDIO read  phy %u reg %-2u -> 0x%04x",
-                            phyad, regad, cdj_ether_phy_read(s, regad));
-            } else {
-                info_report("ether: MDIO write phy %u reg %-2u", phyad, regad);
-            }
-        }
         /* CDJ_ETHER_NO_PHY=1 leaves the line idle. */
-        if (!cdj_ether_phy_present(phyad) || getenv("CDJ_ETHER_NO_PHY")) {
+        if (!cdj_ether_phy_present(s, phyad) || getenv("CDJ_ETHER_NO_PHY")) {
             return;                  /* no PHY there: the line stays idle */
         }
         if (op == 0x2) {
-            s->out = cdj_ether_phy_read(s, regad);
+            s->out = cdj_ether_phy_read(s, phyad, regad);
+            if (getenv("CDJ_ETHER_DEBUG")) {
+                info_report("ether: MDIO read  phy %u reg %-2u -> 0x%04x",
+                            phyad, regad, (unsigned)s->out);
+            }
             /* 16 data bits preceded by this board's MDIO_TA lead-in bits. */
             s->out_bits = 16 + cdj_ether_mdio_ta(s);
         } else {
+            if (getenv("CDJ_ETHER_DEBUG")) {
+                info_report("ether: MDIO write phy %u reg %-2u", phyad, regad);
+            }
             s->wr_reg = regad;
             s->wr_phyad = phyad;
             s->wr_pending = true;
@@ -738,12 +768,39 @@ static void cdj_ether_rx_retry(void *opaque)
     qemu_flush_queued_packets(qemu_get_queue(s->nic));
 }
 
+/* QMP set_link and a network backend's cable changes reach the same PHY/MAC
+ * status as a physical unplug/replug. LCHNG is latched only on an edge. */
+static void cdj_ether_link_status_changed(NetClientState *nc)
+{
+    CdjEtherState *s = qemu_get_nic_opaque(nc);
+    bool up = !nc->link_down && (!nc->peer || !nc->peer->link_down);
+
+    if (up != s->link_up) {
+        s->link_up = up;
+        cdj_ether_link_change(s);
+        s->switch_pending = true;
+        cdj_ether_switch_update_irq(s);
+    }
+}
+
 static NetClientInfo cdj_ether_net_info = {
     .type = NET_CLIENT_DRIVER_NIC,
     .size = sizeof(NICState),
     .can_receive = cdj_ether_can_receive,
     .receive = cdj_ether_receive,
+    .link_status_changed = cdj_ether_link_status_changed,
 };
+
+/* QEMU's socket backend changes peer->link_down on accept/EOF without
+ * notifying the NIC. Sample that carrier signal so connecting the second
+ * player raises the same switch interrupt as a physical cable edge. */
+static void cdj_ether_link_poll(void *opaque)
+{
+    CdjEtherState *s = opaque;
+
+    cdj_ether_link_status_changed(qemu_get_queue(s->nic));
+    timer_mod(s->link_poll, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 100000000);
+}
 
 /* CDJ_ETHER_UNBACKED=1 makes every register read as zero. */
 static bool cdj_ether_backed(void)
@@ -801,7 +858,7 @@ static uint64_t cdj_ether_read(void *opaque, hwaddr off, unsigned size)
     /* PSR is the link-status pin. The firmware logs "ETHER linkdown" and
      * refuses to send while it reads 0. */
     if (off == CDJ_ETHER_PSR) {
-        v = getenv("CDJ_ETHER_NOLINK") ? 0 : CDJ_PSR_LMON;
+        v = s->link_up && !getenv("CDJ_ETHER_NOLINK") ? CDJ_PSR_LMON : 0;
     }
     cdj_ether_trace(s, off, v, false);
     return v;
@@ -894,9 +951,12 @@ static void cdj_ether_write(void *opaque, hwaddr off, uint64_t val,
                             info_report("ether: MDIO wrote phy %u reg %-2u "
                                         "<- 0x%04x (we had returned 0x%04x)",
                                         s->wr_phyad, s->wr_reg, v,
-                                        cdj_ether_phy_read(s, s->wr_reg));
+                                        s->phy[s->wr_reg]);
                         }
                         s->phy[s->wr_reg] = v;
+                        if (s->wr_phyad == 0 && s->wr_reg == 16) {
+                            cdj_ether_switch_update_irq(s);
+                        }
                         s->wr_pending = false;
                         s->out = s->out_bits = 0;
                     }
@@ -968,8 +1028,9 @@ static void cdj_ether_dump(Notifier *n, void *unused)
  *   -netdev socket,id=djlink,mcast=230.0.0.1:50000
  *
  * Without it the link comes up but frames go nowhere. */
-void cdj_ether_init(MemoryRegion *sysmem, const char *name, hwaddr base,
-                    qemu_irq irq, unsigned mdio_ta_default)
+void cdj_ether_init_with_switch(MemoryRegion *sysmem, const char *name,
+                               hwaddr base, qemu_irq irq,
+                               unsigned mdio_ta_default, qemu_irq switch_irq)
 {
     CdjEtherState *s = g_new0(CdjEtherState, 1);
     const char *id = getenv("CDJ_ETHER_NETDEV");
@@ -982,6 +1043,7 @@ void cdj_ether_init(MemoryRegion *sysmem, const char *name, hwaddr base,
     s->exit.notify = cdj_ether_dump;
     qemu_add_exit_notifier(&s->exit);
     s->irq = irq;
+    s->link_up = true;
     cdj_ether_link_change(s);        /* the cable is in at power on */
 
     peer = qemu_find_netdev(id && *id ? id : "djlink");
@@ -995,7 +1057,18 @@ void cdj_ether_init(MemoryRegion *sysmem, const char *name, hwaddr base,
     s->conf.peers.queues = 1;
     s->nic = qemu_new_nic(&cdj_ether_net_info, &s->conf, "cdj.ether",
                           "ether", &s->reentrancy_guard, s);
+    s->link_up = !peer->link_down;
+    s->switch_irq = switch_irq;
+    s->switch_pending = true;
     s->rx_retry = timer_new_ns(QEMU_CLOCK_VIRTUAL, cdj_ether_rx_retry, s);
+    s->link_poll = timer_new_ns(QEMU_CLOCK_VIRTUAL, cdj_ether_link_poll, s);
+    timer_mod(s->link_poll, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 100000000);
     info_report("%s: EtherMAC attached to netdev '%s'",
                 cdj_board->name, id && *id ? id : "djlink");
+}
+
+void cdj_ether_init(MemoryRegion *sysmem, const char *name, hwaddr base,
+                    qemu_irq irq, unsigned mdio_ta_default)
+{
+    cdj_ether_init_with_switch(sysmem, name, base, irq, mdio_ta_default, NULL);
 }

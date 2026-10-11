@@ -67,9 +67,11 @@ static void xdj_init(MachineState *machine)
     int i;
 
     cdj_intc.mask_reads_inverted = true;
-    cdj_intc_init(sysmem, cpu);
+    /* Map fallback ranges first: the real four-byte INTC-B aliases must
+     * win over the broad gap device, including IRQ5 priority/mask writes. */
     cdj_unimp("sh7724.intc-b", 0xa4140000, 0x1000);
     cdj_unimp("sh7724.intc-c", 0xa4090000, 0x1000);
+    cdj_intc_init(sysmem, cpu);
     xdj_regs(sysmem, "sh7724.cpg", 0xa4150000, 0x1000, cpg);
     xdj_regs(sysmem, "sh7724.dbsc", 0xfd000000, 0x1000, NULL);
     xdj_regs(sysmem, "sh7724.bsc", 0xff800000, 0x1000, NULL);
@@ -109,8 +111,9 @@ static void xdj_init(MachineState *machine)
     cdj_iic(sysmem, "xdj.iic1", 0xa4750000, 1, NULL);
     cdj_usb_init(sysmem, 0xa4d90000, cdj_intc.irqs[CDJ_USB1], false);
     cdj_usbf_init_at(sysmem, 0x04d80000, cdj_intc.irqs[CDJ_USB0]);
-    cdj_ether_init(sysmem, "sh7724.ether", 0x04600000,
-                   cdj_intc.irqs[CDJ_ETHI], 0);
+    cdj_ether_init_with_switch(sysmem, "sh7724.ether", 0x04600000,
+                              cdj_intc.irqs[CDJ_ETHI], 0,
+                              cdj_intc.irqs[CDJ_IRQ5]);
     /* TPU0 drives the LCD backlight PWM; no IRQ is enabled by MAIN. */
     xdj_tpu_init();
     xdj_lcdc_init(sysmem, cdj_count_irq(cdj_intc.irqs[CDJ_LCDCI], "LCDC"));

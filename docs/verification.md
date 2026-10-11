@@ -102,3 +102,57 @@ audio continuity, control semantics and physical hardware remain unqualified.
 Removed source, pending edits and retired test fixtures have a verified recovery
 archive under `output/legacy-recovery`, with per-file hashes and the original
 Git diff. This ignored local archive is not included in a GitHub publication.
+
+## DSP execution speed — 2026-10-08
+
+Measured failure, engine `f9801338…` with a warm cache, key-shift firmware
+`690dc0c9…`, private state, muted output: with MASTER TEMPO on at +3.45 % the DAC
+received 12,394 frames/s over a 33 s interval, 23.6 s of DSP time was forgiven by
+the 300 ms lag cap, and MAIN waited for the DSP lock 59 % of the time. A
+recording of that session (`CDJ_XDJ_DSP_RECORD`, 52.03 G cycles) replayed offline
+showed why: the time-stretch code needs 130 M cycles/s and the core delivered 30 M
+uncompiled and 133 M compiled. The causes and changes are in
+`native/qemu/hw/cdj/c6x/c66x_core.md` ("Compiled regions in the machine").
+
+Pass:
+
+- The recording replays `EXACT` on the changed core, interpreted and compiled:
+  12,403 state hashes, 1,476,262 bus writes with no value mismatch, final RAM
+  hash `0x5c64e469bba999ee`, the same as the unchanged core's.
+- Offline, host seconds per DSP second: track load 0.34 → 0.23 (worst second
+  1.36 → 0.80), playback 0.19 → 0.14, MASTER TEMPO 0.97 → 0.26; uncompiled
+  MASTER TEMPO 4.6 → 1.7.
+- 68 native component tests and 86 Rust workspace tests; formatting and clippy
+  with warnings denied. The generator, its headers and its core library are now
+  copied beside each engine build, and a rebuilt source tree keeps its patch set.
+- In the machine, engine `4dca44a7…` (`output/engine-v2`), key-shift 0.3 firmware
+  `81a60919…` in a new private state seeded from `output/dsp-donors`, muted
+  CoreAudio, driven through the shell bridge: track load, 20 s of playback and
+  41 s of MASTER TEMPO at 44,100 frames/s with 0 ms forgiven, no dropped frame
+  and no serializer underrun for the whole 125 s session. The donor cache was
+  compiled by replaying the recording with that engine's generator; the 0.3
+  firmware's DSP program differs from the recorded one in about 1 % of its
+  fetch packets, which the engine compiled again while it ran.
+
+Measured fail, kept:
+
+- A cold cache still starts interpreted. The same session without a donor
+  delivered 15,000–33,000 frames/s for its first minutes, and under a host load
+  average above 30 from unrelated work it never settled.
+- While these changes were in the source tree, sessions launched by the
+  installed backend with the engine of the moment could not compile at all (29
+  failed batches in one): that backend runs the tree's generator against whatever
+  engine is selected. An engine built from here on carries its own.
+
+Unverified:
+
+- Four-session playback preparation, audio continuity by PCM analysis, control
+  semantics, long endurance and physical hardware. Nothing here qualifies a cache
+  as `ready`.
+- Timing of the final engine on an otherwise idle host, and of the transport
+  controls beyond load, play and MASTER TEMPO.
+- The installed desktop app: it was not rebuilt, so it does not yet seed from
+  `output/dsp-donors` or use the engine's own generator.
+- A host-port read of DSP memory no longer stops the DSP thread; that it is
+  equivalent for the firmware rests on the board's own asynchronous host port,
+  not on a hardware trace.

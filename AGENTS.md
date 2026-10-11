@@ -31,3 +31,16 @@ DSP JIT and QEMU build tools still need Python; the host backend is Rust.
 Keep responses short. Re-diagnose after two unsuccessful fixes to one issue.
 Before introducing material compatibility, publication or infrastructure work,
 explain the commitment and honor scope already approved by the user.
+
+# Interactive demo media
+
+Use the three-track CC0 demo configured in `output/desktop-defaults.json` for
+interactive launches, including linked players. It contains precomputed waveforms
+and beat grids; see `docs/demo-media.md` to rebuild it. Use the user's personal
+library only when explicitly requested. Do not replace analyzed demo media with
+`output/media/demo.img` or a generated test WAV unless explicitly requested or
+needed for a scoped audio test.
+Keep the source image immutable and use each player's private overlay.
+Personal audio, databases, analysis, library paths and screenshots belong only
+in ignored local folders. Use synthetic data in publishable examples; do not
+copy user library metadata or captures into source, documentation or commits.

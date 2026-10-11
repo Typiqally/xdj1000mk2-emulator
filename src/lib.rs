@@ -4,6 +4,7 @@ pub mod cli;
 pub mod controls;
 pub mod firmware;
 pub mod lamps;
+pub mod link;
 pub mod media;
 pub mod ocr;
 pub mod package;

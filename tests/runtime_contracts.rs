@@ -128,6 +128,49 @@ fn runtime_quits_only_its_child_and_releases_state() {
     assert!(xdj_backend::state::Lease::acquire(&state.directory).is_ok());
 }
 #[test]
+fn runtime_passes_link_to_the_engine_after_media_arguments_are_rebuilt() {
+    let dir = tempfile::tempdir().unwrap();
+    native(dir.path());
+    let source = dir.path().join("input.UPD");
+    fs::write(&source, common::package()).unwrap();
+    let state = State::prepare(&source, &dir.path().join("state")).unwrap();
+    let engine = fixture(dir.path());
+    let capture = "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$(dirname \"$0\")/launch.args\"\nprintf '%s\\n' \"$CDJ_ETHER_MAC\" \"$CDJ_ETHER_LINKLOG\" > \"$(dirname \"$0\")/link.env\"\n";
+    fs::write(
+        &engine,
+        format!("{capture}{}", include_str!("fixtures/qmp-peer.sh")),
+    )
+    .unwrap();
+    let mut options = Options::at(dir.path());
+    options.engine = engine;
+    options.audio = "off".into();
+    options.mode = "interpreter".into();
+    options.link = xdj_backend::link::Link::from_args(
+        &xdj_backend::cli::Args::parse(vec![
+            "shell".into(),
+            "--link-listen".into(),
+            "9000".into(),
+            "--link-trace".into(),
+        ])
+        .unwrap(),
+    )
+    .unwrap();
+    options.extra = vec!["-display".into(), "none".into()];
+    for _ in 0..2 {
+        let runtime = Runtime::start(&state, &options).unwrap();
+        let args = fs::read_to_string(dir.path().join("launch.args")).unwrap();
+        assert!(args.contains("-netdev\nsocket,id=djlink,listen=127.0.0.1:9000\n"));
+        assert_eq!(
+            fs::read_to_string(dir.path().join("link.env")).unwrap(),
+            format!(
+                "{}\n1\n",
+                options.link.as_ref().unwrap().mac_for(&state.directory)
+            )
+        );
+        drop(runtime);
+    }
+}
+#[test]
 fn changed_engine_retires_code_and_never_overwrites_nor() {
     let dir = tempfile::tempdir().unwrap();
     native(dir.path());
@@ -165,6 +208,12 @@ fn stdio_shell_recovers_from_bad_inputs_and_closes_on_quit() {
     let engine = fixture(dir.path());
     let image = dir.path().join("input.img");
     fs::write(&image, b"mock backing image").unwrap();
+    fs::create_dir(dir.path().join("output")).unwrap();
+    fs::write(
+        dir.path().join("output/desktop-defaults.json"),
+        json!({"usb_image":image}).to_string(),
+    )
+    .unwrap();
     let qemu_img = dir.path().join("qemu-img");
     fs::write(
         &qemu_img,
@@ -181,8 +230,6 @@ fn stdio_shell_recovers_from_bad_inputs_and_closes_on_quit() {
         .arg("--firmware")
         .arg(&source)
         .args(["--audio", "off", "--compile-mode", "interpreter"])
-        .arg("--usb-image")
-        .arg(image)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -198,6 +245,11 @@ fn stdio_shell_recovers_from_bad_inputs_and_closes_on_quit() {
         let running = event["event"] == "running";
         seen.push(event);
         if running {
+            assert_eq!(
+                seen.last().unwrap()["media"],
+                json!(image.canonicalize().unwrap())
+            );
+            assert!(!dir.path().join("output/media/demo.img").exists());
             break;
         }
     }
@@ -208,6 +260,7 @@ fn stdio_shell_recovers_from_bad_inputs_and_closes_on_quit() {
     )
     .unwrap();
     writeln!(input, "{}", json!({"action":"pitch","value":true})).unwrap();
+    writeln!(input, "{}", json!({"action":"link","connected":true})).unwrap();
     writeln!(
         input,
         "{}",
@@ -226,7 +279,7 @@ fn stdio_shell_recovers_from_bad_inputs_and_closes_on_quit() {
         seen.iter()
             .filter(|e| e["event"] == "error" && e["recoverable"] == true)
             .count(),
-        2
+        3
     );
     assert!(
         seen.iter()
@@ -259,7 +312,7 @@ fn shell_media_switches_diagnostics_and_restarts_preserve_protocol() {
     let log = dir.path().join("qmp.log");
     let mut child = Command::new(env!("CARGO_BIN_EXE_xdj-backend"))
         .env("MOCK_QMP_LOG", &log)
-        .arg("shell")
+        .args(["shell", "--link-connect", "9000"])
         .arg("--root")
         .arg(dir.path())
         .arg("--engine")
@@ -294,6 +347,8 @@ fn shell_media_switches_diagnostics_and_restarts_preserve_protocol() {
     }
     until_running(&mut output, &mut events);
     for message in [
+        json!({"action":"link","connected":false}),
+        json!({"action":"link","connected":true}),
         json!({"action":"touch","x":10,"y":20,"down":true}),
         json!({"action":"jog","ticks":32}),
         json!({"action":"vinyl-speed","value":255}),
@@ -337,6 +392,14 @@ fn shell_media_switches_diagnostics_and_restarts_preserve_protocol() {
     let commands = fs::read_to_string(log).unwrap();
     assert!(commands.contains("xdj-panel-analog1"));
     assert!(commands.contains("stopcapture 0"));
+    let cable: Vec<Value> = commands
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .filter(|command: &Value| command["execute"] == "set_link")
+        .collect();
+    assert_eq!(cable.len(), 2);
+    assert_eq!(cable[0]["arguments"], json!({"name":"ether","up":false}));
+    assert_eq!(cable[1]["arguments"], json!({"name":"ether","up":true}));
 }
 #[test]
 fn prepared_launch_requires_complete_batches_and_invalid_greeting_keeps_log() {

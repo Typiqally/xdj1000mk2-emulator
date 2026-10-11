@@ -28,7 +28,7 @@ The firmware project's `EMULATOR.md` describes its separate offline SH4 harness.
 Check the current Rust CLI flags before running a long workload:
 
 ```sh
-cd /Users/typically/Workspace/xdj1000mk2-emulator
+cd /path/to/xdj1000mk2-emulator
 cargo build --locked --release
 cargo build --locked --release -p xdj-ui --bin xdj-ui
 ./target/release/xdj-backend --help

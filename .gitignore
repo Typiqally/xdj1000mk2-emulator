@@ -8,6 +8,21 @@
 *.qcow2
 *.wav
 *.mp3
+# Personal music exports and analysis stay local, even outside /media or /output.
+*.[wW][aA][vV]
+*.[mM][pP]3
+*.[fF][lL][aA][cC]
+*.[aA][iI][fF]
+*.[aA][iI][fF][fF]
+*.[aA][aA][cC]
+*.[mM]4[aA]
+*.[pP][dD][bB]
+*.2[eE][xX]
+ANLZ*.[dD][aA][tT]
+ANLZ*.[eE][xX][tT]
+**/PIONEER/
+**/USBANLZ/
+**/Contents/
 *.ppm
 *.bin
 *.so

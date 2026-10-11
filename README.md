@@ -23,8 +23,9 @@ firmware flashing. The inherited engine still has partial hardware models and
 unresolved playback/response acceptance. See [architecture](docs/architecture.md)
 and [verification](docs/verification.md).
 
-The [publication checks](docs/publication-validation.md) record 85 passing Rust
-tests and outstanding native-suite failures in the current development source.
+The [publication checks](docs/publication-validation.md) distinguish the latest
+source checks from historical results. GitHub Actions tests the published source;
+audio and physical hardware qualification remain separate.
 
 ## Rust desktop UI
 

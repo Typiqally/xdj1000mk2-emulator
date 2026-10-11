@@ -45,12 +45,27 @@ its compiled DSP coverage, guest workload, timing, and host scheduling.
 ## Compatibility
 
 Persistent manifests retain schema 1. Cache identities retain schema 2 and
-`c674x-generic-loops-v3`; generator identity covers the retained C headers, DSP script and decoder source.
+`c674x-generic-loops-v3`; generator identity covers the retained C headers, DSP script, decoder source
+and the core library the generator plans with.
+`build-engine` keeps the generator an engine is built with beside it
+(`<engine>/dsp-lib/c6x` and `libc66x.so`), and that copy is what its modules
+are compiled against and identified by: the source tree can move on under a
+running or selected engine without changing the struct its modules read. An
+engine built before the copy existed falls back to the tree.
 The decoder was added during migration so previously decoded modules cannot be
 borrowed across register-decoding changes. The C engine checks module instruction
 bytes and ISA/ABI before dispatch. Preparation additionally checks module file
 hashes and profile-3 input/continuity evidence. Engine hashes prevent borrowing
 an old readiness verdict for a new build.
+
+A firmware never run before is seeded from the closest cache of the same
+generator: its own, then one of the same DSP program, then any other
+program's. A foreign cache brings only its modules. The engine enters a region
+only while every fetch packet it was built from holds the same bytes, counts
+a region as present only then, and compiles the packets that differ again,
+so a patched DSP program starts with the code it shares. `output/dsp-donors`
+is searched beside the library: a cache compiled ahead of time lives there in
+a library of its own, never in a player's state.
 
 New imports use a private library by default. Importing existing persistent
 state requires explicit paths. No original project's state or media is moved.

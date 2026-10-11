@@ -18,5 +18,8 @@
  */
 void cdj_ether_init(MemoryRegion *sysmem, const char *name, hwaddr base,
                     qemu_irq irq, unsigned mdio_ta_default);
+void cdj_ether_init_with_switch(MemoryRegion *sysmem, const char *name,
+                               hwaddr base, qemu_irq irq,
+                               unsigned mdio_ta_default, qemu_irq switch_irq);
 
 #endif
