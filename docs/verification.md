@@ -1,5 +1,11 @@
 # Extraction and backend verification
 
+For the current idle-session regressions, unresolved clipping findings and
+2026-10-12 output retention, see [engineering findings](engineering-findings.md).
+The engine paths below identify historical runs; unused engine trees now live
+in integrity-checked archives listed by `output/cleanup-20261012/receipts.json`.
+Their historical verdicts are unchanged.
+
 The new repository has its own Git history, Rust executable, build output,
 state and diagnostics. No firmware-modification tools or original firmware
 assets are needed from the originating repository at build time.

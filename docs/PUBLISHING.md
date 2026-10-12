@@ -6,6 +6,22 @@ includes current source changes; it does not distribute vendor updates, music,
 USB exports, user settings, diagnostic logs, generated DSP modules or build caches.
 The two reviewed README screenshots are included as documentation assets.
 
+## Updating the existing repository
+
+The primary checkout is the active repository on `main`, tracking
+`origin/main` at [Typiqally/xdj1000mk2-emulator](https://github.com/Typiqally/xdj1000mk2-emulator).
+Make ordinary source/documentation changes here, run the appropriate checks in
+`AGENTS.md` and `python3 scripts/check_publication.py check`, then commit and push
+through that configured remote. A separate publishing checkout is unnecessary.
+
+The 2026-10-12 cleanup removed redundant publishing checkouts and disposable
+build caches. Historical source, failure evidence and identities are retained
+locally as described in [engineering findings](engineering-findings.md).
+Do not upload `output/`, local recovery bundles, firmware or player state.
+
+## Exporting a new source snapshot
+
+Use the following only when a separate source export is explicitly needed.
 Prepare a new source snapshot from the repository root:
 
 ```sh
@@ -31,9 +47,10 @@ git diff --cached --check -- . ':!native'
 git commit -m "Initial emulator source publication"
 ```
 
-Create a private GitHub repository named `xdj1000mk2-emulator`, add its remote
-to this snapshot and push `main`. Keep the research workspace's state, build
-output and uncommitted diagnostics local. The script neither uploads nor pushes.
+For a separately requested new repository, configure its intended remote on
+that snapshot. Keep the research workspace's state, build output and uncommitted
+diagnostics local. The script neither uploads nor pushes. The existing emulator
+repository does not need to be recreated.
 
 Pattern checks detect recognizable credentials and reject unexpected binary or
 local-state paths; review the selected source before publication. They cannot

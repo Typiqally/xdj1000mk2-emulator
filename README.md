@@ -23,6 +23,10 @@ firmware flashing. The inherited engine still has partial hardware models and
 unresolved playback/response acceptance. See [architecture](docs/architecture.md)
 and [verification](docs/verification.md).
 
+[Engineering findings](docs/engineering-findings.md) summarizes idle-session
+recovery, measured optimizations, unresolved resume clipping and local evidence
+retention after cleanup.
+
 The [publication checks](docs/publication-validation.md) distinguish the latest
 source checks from historical results. GitHub Actions tests the published source;
 audio and physical hardware qualification remain separate.

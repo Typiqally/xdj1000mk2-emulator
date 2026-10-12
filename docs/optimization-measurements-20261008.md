@@ -83,7 +83,11 @@ measurements, not whole-project coverage claims.
 
 ## Method and evidence
 
-Raw artifacts are under [`output/optimization-four`](../output/optimization-four/).
+Raw artifacts are under the
+[retained optimization evidence](../output/main-cleanup-20261012/retired-worktrees/xdj-optimize-four-20261008/output/optimization-four/).
+The 2026-10-12 cleanup removed disposable Cargo caches and publication copies;
+frozen sources, replay modules, identities, measurements and comparison binaries
+remain available. See [the findings and retention summary](engineering-findings.md).
 The final summary is produced by
 [`scripts/summarize-optimizations.py`](../scripts/summarize-optimizations.py).
 `machine-identity.json` captures compiler, architecture, source commit, core,

@@ -1,5 +1,18 @@
 # Source publication checks
 
+## 2026-10-12 idle-session recovery
+
+Commit `18fcad0` fixes full UI event queues closing the backend reader, releases
+blocked readers during shutdown, retries failed displays and preserves terminal
+player status. The published source passed `cargo fmt --all --check`, workspace
+Clippy with warnings denied and all 100 workspace tests. Evidence is retained
+in ignored `output/display-recovery-publication-*.log`.
+
+This is regression and source verification. The separate 125-second audio-off
+native check recovered its display transport but did not establish paused-track
+visual behavior or long idle stability. See
+[engineering findings and retained evidence](engineering-findings.md).
+
 ## 2026-10-11 emulator update
 
 The Link transport, analyzed three-track CC0 demo tooling, scripted input lifetime
