@@ -92,8 +92,10 @@ impl Bridge {
                         } else {
                             json!({"event":"log","message":String::from_utf8_lossy(&line)})
                         };
-                        send.try_send(event)
-                            .context("Backend event queue is full or closed")?;
+                        // Occluded windows can stop polling for minutes. Bound
+                        // memory with backpressure, without closing the pipe
+                        // the running backend still writes its reports into.
+                        send.send(event).context("Backend event queue is closed")?;
                         notify();
                     }
                     Ok(())
@@ -128,6 +130,10 @@ impl Bridge {
 }
 impl Drop for Bridge {
     fn drop(&mut self) {
+        // Release readers blocked on a full queue before joining their threads.
+        // The UI no longer consumes events once bridge shutdown starts.
+        let (_, closed) = mpsc::channel();
+        self.events = closed;
         if let Some(send) = self.commands.take() {
             let _ = send.try_send(json!({"action":"quit"}));
             drop(send);

@@ -104,3 +104,76 @@ fn benchmark_peer_really_streams_pixels_after_its_json_handshake() {
     drop(display);
     drop(bridge);
 }
+
+#[test]
+fn idle_ui_backpressures_events_and_can_resume_or_close_a_full_queue() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let dir = tempfile::tempdir().unwrap();
+    let backend = Path::new(env!("CARGO_BIN_EXE_xdj-ui-fixture"));
+    let notifications = Arc::new(AtomicUsize::new(0));
+    let wake = notifications.clone();
+    let mut bridge = Bridge::spawn(
+        backend,
+        &[],
+        dir.path(),
+        Arc::new(move || {
+            wake.fetch_add(1, Ordering::Relaxed);
+        }),
+    )
+    .unwrap();
+    // Leave more acknowledgements than fit in the UI queue unread, as an
+    // occluded/minimized window can do while the player keeps reporting state.
+    for seq in 0..400 {
+        loop {
+            if bridge
+                .send(json!({"action":"bench-echo","seq":seq}))
+                .is_ok()
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while notifications.load(Ordering::Relaxed) < 256 {
+        assert!(
+            Instant::now() < deadline,
+            "Fixture did not fill the event queue"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    std::thread::sleep(Duration::from_millis(30));
+    assert!(
+        bridge.error.lock().unwrap().is_none(),
+        "Full event queues must not close the backend output reader"
+    );
+    assert!(!bridge.exited().unwrap());
+    let mut acknowledgements = 0;
+    while acknowledgements < 400 {
+        let event = bridge.events.recv_timeout(Duration::from_secs(3)).unwrap();
+        if event["event"] == "input-ack" {
+            assert_eq!(event["command"]["seq"], acknowledgements);
+            acknowledgements += 1;
+        }
+    }
+    // Fill it again and close without draining: blocked readers must be joined.
+    for seq in 0..400 {
+        while bridge
+            .send(json!({"action":"bench-echo","seq":seq}))
+            .is_err()
+        {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while notifications.load(Ordering::Relaxed) < 400 + 3 + 256 {
+        assert!(
+            Instant::now() < deadline,
+            "Fixture did not refill the event queue"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let start = Instant::now();
+    drop(bridge);
+    assert!(start.elapsed() < Duration::from_secs(2));
+}

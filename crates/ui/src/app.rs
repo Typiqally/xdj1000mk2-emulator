@@ -214,6 +214,8 @@ pub struct DeckApp {
     bridge: Option<Bridge>,
     display: Option<Display>,
     connected: Option<String>,
+    display_retry: Option<Instant>,
+    display_recovering: bool,
     latest: Arc<Latest<Frame>>,
     display_error: Arc<Mutex<Option<String>>>,
     texture: Option<egui::TextureHandle>,
@@ -264,6 +266,8 @@ impl DeckApp {
             bridge: None,
             display: None,
             connected: None,
+            display_retry: None,
+            display_recovering: false,
             latest: Arc::new(Latest::default()),
             display_error: Arc::new(Mutex::new(None)),
             texture: None,
@@ -626,33 +630,60 @@ impl DeckApp {
         }
         if self.connected != self.player.endpoint {
             self.display = None;
-            self.connected = None;
+            self.connected = self.player.endpoint.clone();
+            self.display_retry = None;
+            self.display_recovering = false;
             self.texture = None;
             self.latest.take();
-            if let Some(endpoint) = &self.player.endpoint {
-                let ctx = ctx.clone();
+            // A closed old connection must not overwrite a stopped/new player.
+            self.display_error.lock().unwrap().take();
+        }
+        let fault = self.display_error.lock().unwrap().take();
+        if let Some(fault) = fault
+            && self.player.endpoint.is_some()
+        {
+            self.display = None;
+            self.latest.take();
+            self.player.log(fault);
+            self.player.status = "Display disconnected. Reconnecting…".into();
+            self.display_recovering = true;
+            self.display_retry = Some(Instant::now() + Duration::from_secs(1));
+        }
+        if self.display.is_none() {
+            if let Some(retry) = self.display_retry
+                && retry > Instant::now()
+            {
+                ctx.request_repaint_after(retry.saturating_duration_since(Instant::now()));
+            } else if let Some(endpoint) = &self.player.endpoint {
+                let wake_ctx = ctx.clone();
                 match Display::start(
                     endpoint,
                     self.latest.clone(),
                     self.display_error.clone(),
-                    Arc::new(move || ctx.request_repaint()),
+                    Arc::new(move || wake_ctx.request_repaint()),
                 ) {
                     Ok(display) => {
                         self.display = Some(display);
-                        self.connected = Some(endpoint.clone());
+                        self.display_retry = None;
                     }
                     Err(e) => {
-                        self.player.status = format!("Cannot connect display: {e}");
-                        self.connected = Some(endpoint.clone());
+                        self.player.log(format!("Cannot connect display: {e:#}"));
+                        self.player.status = "Display disconnected. Reconnecting…".into();
+                        self.display_recovering = true;
+                        self.display_retry = Some(Instant::now() + Duration::from_secs(1));
+                        ctx.request_repaint_after(Duration::from_secs(1));
                     }
                 }
             }
         }
-        let fault = self.display_error.lock().unwrap().take();
-        if let Some(fault) = fault {
-            self.player.status = fault;
-        }
         if let Some(frame) = self.latest.take() {
+            if self.display_recovering {
+                if self.player.status == "Display disconnected. Reconnecting…" {
+                    self.player.status = "Firmware running".into();
+                }
+                self.player.log("Display reconnected".into());
+                self.display_recovering = false;
+            }
             self.metrics.received = frame.sequence;
             self.metrics.frames += 1;
             let age = frame.received.elapsed().as_micros() as u64;
@@ -2059,6 +2090,117 @@ mod tests {
             );
             output.textures_delta.clear();
         }
+    }
+    #[test]
+    fn display_failure_during_shutdown_does_not_replace_player_status() {
+        let ctx = egui::Context::default();
+        let mut app = DeckApp::offline(Options::default());
+        app.connected = Some("old-display".into());
+        app.player.event(
+            &json!({"event":"disconnected","message":"Player stopped. Restart to try again."}),
+        );
+        *app.display_error.lock().unwrap() =
+            Some("Firmware display: failed to fill whole buffer".into());
+        app.poll(&ctx);
+        assert_eq!(app.player.status, "Player stopped. Restart to try again.");
+    }
+    #[test]
+    fn lost_display_reconnects_without_restarting_player_or_clearing_pixels() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+            sync::mpsc,
+            thread,
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let endpoint = format!("tcp:{}", listener.local_addr().unwrap());
+        let (close, closed) = mpsc::channel();
+        let peer = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(4);
+            let mut socket = loop {
+                if closed.try_recv().is_ok() {
+                    return;
+                }
+                match listener.accept() {
+                    Ok((socket, _)) => break socket,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline, "Display did not reconnect");
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(e) => panic!("{e}"),
+                }
+            };
+            socket.set_nonblocking(false).unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            socket.write_all(b"RFB 003.008\n").unwrap();
+            socket.read_exact(&mut [0; 12]).unwrap();
+            socket.write_all(&[1, 1]).unwrap();
+            socket.read_exact(&mut [0]).unwrap();
+            socket.write_all(&[0; 4]).unwrap();
+            socket.read_exact(&mut [0]).unwrap();
+            let mut init = [0; 24];
+            init[1] = 1;
+            init[3] = 1;
+            socket.write_all(&init).unwrap();
+            socket.read_exact(&mut [0; 42]).unwrap();
+            socket
+                .write_all(&[0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 255, 0])
+                .unwrap();
+            socket.read_exact(&mut [0; 10]).unwrap();
+            closed.recv_timeout(Duration::from_secs(3)).unwrap();
+        });
+        let ctx = egui::Context::default();
+        let mut app = DeckApp::offline(Options::default());
+        app.latest.offer(Frame {
+            size: [1, 1],
+            patch: crate::rfb::Damage {
+                origin: [0, 0],
+                size: [1, 1],
+            },
+            rgba: vec![0, 0, 255, 255],
+            received: Instant::now(),
+            sequence: 1,
+        });
+        ctx.run_ui(egui::RawInput::default(), |ui| app.poll(ui.ctx()))
+            .textures_delta
+            .clear();
+        let texture = app.texture.as_ref().unwrap().id();
+        app.player
+            .event(&json!({"event":"running","vnc":endpoint,"message":"Firmware running"}));
+        app.connected = Some(endpoint);
+        *app.display_error.lock().unwrap() =
+            Some("Firmware display: failed to fill whole buffer".into());
+        ctx.run_ui(egui::RawInput::default(), |ui| app.poll(ui.ctx()))
+            .textures_delta
+            .clear();
+        assert!(app.player.ready);
+        assert_eq!(app.texture.as_ref().unwrap().id(), texture);
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while app.framebuffer.as_ref().unwrap().1 != [255, 0, 0, 255] {
+            if Instant::now() >= deadline {
+                close.send(()).unwrap();
+                peer.join().unwrap();
+                panic!("Display never recovered: {}", app.player.status);
+            }
+            ctx.run_ui(egui::RawInput::default(), |ui| app.poll(ui.ctx()))
+                .textures_delta
+                .clear();
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(app.texture.as_ref().unwrap().id(), texture);
+        assert_eq!(app.player.status, "Firmware running");
+        assert!(
+            app.player
+                .logs
+                .iter()
+                .any(|line| line.contains("failed to fill whole buffer"))
+        );
+        drop(app);
+        close.send(()).unwrap();
+        peer.join().unwrap();
     }
     #[test]
     fn scripted_touch_hold_survives_repaints_until_explicit_release() {
